@@ -41,8 +41,31 @@ use websocket_server;
 # 
 # http://bugs.irssi.org/index.php?do=details&task_id=242
 # http://pound-perl.pm.org/code/irssi/autovoice.pl
-#
 { package Irssi::Nick }
+
+my @excluded_from_backlog = (
+    "makeserver", "make_buffer", "connection_deleted", "delete_buffer"
+);
+
+my $backlog = {};
+
+sub add_to_backlog {
+    my $message = shift;
+
+    my %excludes = map { $_ => 1 } @excluded_from_backlog;
+    if (exists($excludes{$message->{type}})) {
+        return;
+    }
+
+    my $bid = $message->{bid};
+    $backlog->{$bid} ||= [];
+
+    if (scalar(@{$backlog->{$bid}}) >= 500) {
+        shift(@{$backlog->{$bid}});
+    }
+
+    push (@{$backlog->{$bid}}, $message);
+};
 
 sub make_server {
     my $server = shift;
@@ -82,7 +105,7 @@ sub make_console_buffer {
         type        => "makebuffer",
         buffer_type => "console",
         cid         => $server->{_irssi},
-        bid         => 0,
+        bid         => $server->{_irssi},
         name        => "*"
     }
 }
@@ -136,27 +159,6 @@ sub make_delete_buffer {
     };
 };
 
-sub send_lines {
-    my $connection = shift;
-    my $buffer = shift;
-
-    my $window = $buffer->window();
-    my $view   = $window->view();
-    my $line   = $view->get_lines();
-
-    while (defined $line) {
-        send_message($connection, {
-            "cid"  => $buffer->{server}->{_irssi},
-            "bid"  => $buffer->{_irssi},
-            "type" => "channel_notice",
-            "eid"  => $line->{info}->{_irssi},
-            "time" => $line->{info}->{time},
-            "msg"  => $line->get_text(0)
-        });
-        $line = $line->next;
-    }
-}
-
 sub send_header {
     my $connection = shift;
     send_message($connection, {
@@ -170,20 +172,30 @@ sub send_header {
 sub send_backlog {
     my $connection = shift;
 
+    my $bids = [];
+
     foreach my $server (Irssi::servers) {
         send_message($connection, make_server($server));
         send_message($connection, make_console_buffer($server));
+        push(@$bids, $server->{_irssi});
     }
 
     foreach my $channel (Irssi::channels) {
         send_message($connection, make_channel_buffer($channel));
         send_message($connection, make_channel_init($channel));
-        # send_lines($connection, $channel);
+        push(@$bids, $channel->{_irssi});
     }
 
     foreach my $query (Irssi::queries) {
         send_message($connection, make_query_buffer($query));
-        # send_lines($connection, $query);
+        push(@$bids, $query->{_irssi});
+    }
+
+    foreach my $bid (@$bids) {
+        my $messages = $backlog->{$bid};
+        foreach my $message (@$messages) {
+            send_message($connection, $message);
+        }
     }
 
     foreach my $server (Irssi::servers) {
@@ -198,14 +210,54 @@ sub send_backlog {
     });
 }
 
+sub find_server {
+    my $cid = shift;
+
+    foreach my $server (Irssi::servers) {
+        if ($server->{_irssi} == $cid) {
+            return $server;
+        }
+    }
+    return undef;
+};
+
 my $ws_server = new WebSocket::Server;
+
+$ws_server->on_listen(sub {
+    my $port = shift;
+    Irssi::print("Irseas listening on port $port");
+});
 
 $ws_server->on_connection(sub {
     my $connection = shift;
 
     $connection->on_message(sub {
         my $message = shift;
+
         Irssi::print("on message! $message");
+
+        $message = decode_json($message);
+
+        Irssi::print("message: " . Dumper($message));
+
+        my $server = find_server($message->{cid});
+
+        if ($message->{_method} eq "say") {
+            my $target = $message->{to};
+            my $text   = $message->{msg};
+
+            $server->command("MSG " . $target . " " . $text);
+
+        } elsif ($message->{_method} eq "join") {
+            my $channel = $message->{channel};
+
+            $server->command("JOIN " . $channel);
+
+        } elsif ($message->{_method} eq "part") {
+            my $channel = $message->{channel};
+
+            $server->command("PART " . $channel);
+        }
     });
 
     Irssi::print("on connection! $connection");
@@ -251,7 +303,7 @@ sub broadcast_all_buffers {
     # console buffer
     broadcast({
         cid => $server->{_irssi},
-        bid => 0,
+        bid => $server->{_irssi},
         %$message
     });
     
@@ -275,13 +327,11 @@ sub broadcast_all_buffers {
 sub broadcast {
     my $message = shift;
 
-    $ws_server->broadcast(
-        encode_json(
-            prepare_message($message)
-        )
-    );
+    $message = prepare_message($message);
 
-    # FIXME add_to_backlong
+    $ws_server->broadcast(encode_json($message));
+
+    add_to_backlog($message);
 };
 
 Irssi::signal_add_last("chatnet create", sub {
@@ -562,6 +612,44 @@ Irssi::signal_add_last("message own_private", sub {
     });
 });
 
+Irssi::signal_add_last("message irc own_action", sub {
+    my $server = shift;
+    my $msg    = shift;
+    my $target = shift;
+
+    my $buffer = $server->window_item_find($target);
+
+    # {"bid":187241,"eid":256,"type":"buffer_me_msg","time":1333251035,"highlight":false,"from":"fR_","msg":"blah","chan":"#testing","cid":2283} 
+
+    broadcast({
+        cid  => $server->{_irssi},
+        bid  => $buffer->{_irssi},
+        type => "buffer_me_msg",
+        from => $server->{nick},
+        msg  => $msg
+    });
+});
+
+Irssi::signal_add_last("message irc action", sub {
+    my $server  = shift;
+    my $msg     = shift;
+    my $nick    = shift;
+    my $address = shift;
+    my $target  = shift;
+
+    my $buffer = $server->window_item_find($target);
+
+    # {"bid":187241,"eid":256,"type":"buffer_me_msg","time":1333251035,"highlight":false,"from":"fR_","msg":"blah","chan":"#testing","cid":2283} 
+    
+    broadcast({
+        cid  => $server->{_irssi},
+        bid  => $buffer->{_irssi},
+        type => "buffer_me_msg",
+        from => $nick,
+        msg  => $msg
+    });
+});
+
 Irssi::signal_add_last("message join", sub {
     my $server  = shift;
     my $channel = shift;
@@ -672,16 +760,67 @@ Irssi::signal_add_last("message irc notice", sub {
     my $address = shift;
     my $target  = shift;
 
-    Irssi::print("NOTICE: $msg $nick $address $target");
-
     # {"bid":18665,"eid":4136,"type":"notice","time":1332770243,"highlight":false,"server":"seattlewireless.net","msg":"*** Looking up your hostname...","cid":2283,"target":"Auth"}
+
     broadcast({
         type   => "notice",
         cid    => $server->{_irssi},
-        bid    => 0,
+        bid    => $server->{_irssi},
+        from   => $nick,
         msg    => $msg,
         target => $target
     });
+});
+
+Irssi::signal_add_last("message irc own_notice", sub {
+    my $server = shift;
+    my $msg    = shift;
+    my $target = shift;
+
+    broadcast({
+        type   => "notice",
+        cid    => $server->{_irssi},
+        bid    => $server->{_irssi},
+        msg    => $msg,
+        target => $target
+    });
+});
+
+Irssi::signal_add_last("message invite", sub {
+    my $server  = shift;
+    my $channel = shift;
+    my $nick    = shift;
+    my $address = shift;
+
+    # {"bid":19028,"eid":2804,"type":"channel_invite","time":1333250153,"highlight":false,"cid":2283,"channel":"#asd","from":"fR_"} 
+
+    broadcast({
+        cid     => $server->{_irssi},
+        bid     => $server->{_irssi},
+        type    => "channel_invite",
+        channel => $channel,
+        from    => $nick
+    });
+});
+
+Irssi::signal_add_last("away mode changed", sub {
+    my $server = shift;
+    if ($server->{usermode_away}) {
+        # {"bid":18665,"eid":4156,"type":"self_away","time":1332774095,"highlight":false,"chan":"*","nick":"fR","cid":2283,"msg":"You have been marked as being away","away_msg":"Auto-away"},
+        broadcast({
+            cid      => $server->{_irssi},
+            bid      => $server->{_irssi},
+            type     => 'self_away',
+            away_msg => $server->{away_reason}
+        });
+    } else {
+        # {"bid":18665,"eid":4157,"type":"self_back","time":1332776604,"highlight":false,"chan":"*","nick":"fR","cid":2283},
+        broadcast({
+            cid  => $server->{_irssi},
+            bid  => $server->{_irssi},
+            type => "self_back"
+        });
+    }
 });
 
 $ws_server->listen(3000);
