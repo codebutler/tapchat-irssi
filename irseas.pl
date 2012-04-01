@@ -35,6 +35,14 @@ use threads;
 
 use websocket_server;
 
+# Sometimes, for some unknown reason, perl emits warnings like the following:
+#   Can't locate package Irssi::Nick for @Irssi::Irc::Nick::ISA
+# This package statement is here to suppress it.
+# 
+# http://bugs.irssi.org/index.php?do=details&task_id=242
+# http://pound-perl.pm.org/code/irssi/autovoice.pl
+#
+{ package Irssi::Nick }
 
 sub make_server {
     my $server = shift;
@@ -108,6 +116,15 @@ sub make_channel_init {
     };
 }
 
+sub make_delete_buffer {
+    my $buffer = shift;
+    {
+        type => "delete_buffer",
+        cid  => $buffer->{server}->{_irssi},
+        bid  => $buffer->{_irssi}
+    };
+};
+
 sub send_lines {
     my $connection = shift;
     my $buffer = shift;
@@ -155,6 +172,13 @@ sub send_backlog {
     foreach my $query (Irssi::queries) {
         send_message($connection, make_query_buffer($query));
         # send_lines($connection, $query);
+    }
+
+    foreach my $server (Irssi::servers) {
+        send_message($connection, {
+            type => "end_of_backlog",
+            cid  => $server->{_irssi}
+        });
     }
 
     send_message($connection, {
@@ -208,6 +232,27 @@ sub send_message {
     );
 }
 
+sub broadcast_all_buffers {
+    my $server  = shift;
+    my $message = shift;
+    
+    foreach my $channel ($server->channels) {
+        broadcast({
+            cid => $server->{_irssi},
+            bid => $channel->{_irssi},
+            %$message
+        });
+    }
+
+    foreach my $query ($server->queries) {
+        broadcast({
+            cid => $server->{_irssi},
+            bid => $query->{_irssi},
+            %$message
+        });
+    }
+};
+
 sub broadcast {
     my $message = shift;
 
@@ -227,7 +272,11 @@ Irssi::signal_add_last("chatnet create", sub {
 });
 
 Irssi::signal_add_last("chatnet destroyed", sub {
-    # FIXME
+    my $chatnet = shift;
+    broadcast({
+        type => "connection_deleted",
+        cid  => $chatnet->{_irssi}
+    });
 });
 
 Irssi::signal_add_last("channel created", sub {
@@ -239,12 +288,7 @@ Irssi::signal_add_last("channel created", sub {
 
 Irssi::signal_add_last("channel destroyed", sub {
     my $channel = shift;
-
-    broadcast({
-        type => "delete_buffer",
-        cid  => $channel->{server}->{_irssi},
-        bid  => $channel->{_irssi}
-    });
+    broadcast(make_delete_buffer($channel));
 });
 
 Irssi::signal_add_last("query created", sub {
@@ -254,40 +298,89 @@ Irssi::signal_add_last("query created", sub {
 });
 
 Irssi::signal_add_last("query destroyed", sub {
-    # FIXME
+    my $query = shift;
+    broadcast(make_delete_buffer($query));
 });
 
 Irssi::signal_add_last("query nick changed", sub {
-    # FIXME
+    my $query    = shift;
+    my $orignick = shift;
+    
+    # {"bid":19028,"eid":2791,"type":"nickchange","time":1333156403,"highlight":false,"newnick":"fR__","oldnick":"fR_","cid":2283} 
+    broadcast({
+        type    => "nickchange",
+        cid     => $query->{server}->{_irssi},
+        bid     => $query->{_irssi},
+        newnick => $query->nick,
+        oldnick => $orignick
+    });
 });
 
 Irssi::signal_add_last("server connecting", sub {
-    # FIXME
+    my $server = shift;
+    my $ip     = shift;
+
     # {"bid":18665,"eid":4134,"type":"connecting","time":1332770242,"highlight":false,"chan":"*","hostname":"irc.seattlewireless.net","port":7000,"cid":2283,"ssl":true,"server_pass":"","nick":"fR"},
-    # $server = shift;
+
+    broadcast_all_buffers($server, {
+        type     => "connecting",
+        hostname =>  $server->{address},
+        port     =>  $server->{port},
+        ssl      =>  JSON::false, # FIXME
+        nick     =>  $server->{nick},
+    });
 });
 
 Irssi::signal_add_last("server connected", sub {
-    # FIXME
+    my $server = shift;
+
     # {"bid":18665,"eid":4135,"type":"connected","time":1332770243,"highlight":false,"chan":"*","hostname":"irc.seattlewireless.net","port":7000,"cid":2283,"ssl":true},
+
+    broadcast_all_buffers($server, {
+        type => "connected",
+        ssl  => JSON::false, # FIXME
+    });
 });
 
 Irssi::signal_add_last("server connect failed", sub {
-    #FIXME: connecting_failed
+    my $server = shift;
+
+    # {"bid":191436,"eid":5,"type":"connecting_failed","time":1333212023,"highlight":false,"chan":"*","hostname":"foooooo","port":6667,"cid":22752} 
+    
+    broadcast_all_buffers($server, {
+        type     => "connecting_failed",
+        hostname => $server->{address},
+        port     => $server->{port}
+    });
 });
 
 Irssi::signal_add_last("server disconnected", sub {
-    # FIXME: socket_closed
+    my $server = shift;
+
+    # {"bid":190221,"eid":813,"type":"socket_closed","time":1333212190,"highlight":false,"chan":"#mojo","cid":22620} 
+
+    broadcast_all_buffers($server, {
+        type => "socket_closed"
+    });
 });
 
 Irssi::signal_add_last("server quit", sub {
-    # FIXME: quit_server
+    my $server = shift;
+    my $msg    = shift;
+
+    # {"bid":190221,"eid":812,"type":"quit_server","time":1333212190,"highlight":false,"chan":"#mojo","cid":22620,"msg":""} 
+
+    broadcast_all_buffers($server, {
+        type => "quit_server",
+        msg  => $msg
+    });
 });
 
 Irssi::signal_add_last("channel joined", sub {
     my $channel = shift;
 
     # {"bid":189344,"eid":2,"type":"you_joined_channel","time":1332826098,"highlight":false,"nick":"fR","chan":"#bar","hostmask":"~u673@irccloud.com","cid":2283}
+
     broadcast({
         type => "you_joined_channel",
         cid  => $channel->{server}->{_irssi},
@@ -304,20 +397,72 @@ Irssi::signal_add_last("channel sync", sub {
     # FIXME: Or here?
 });
 
+Irssi::signal_add_last("channel topic changed", sub {
+    my $channel = shift;
+
+    # {"bid":187241,"eid":227,"type":"channel_topic","time":1333156705,"highlight":false,"chan":"#testing","author":"fR","time":1333156705,"topic":"foo","cid":2283} 
+
+    broadcast({
+        type   => "channel_topic",
+        cid    => $channel->{server}->{_irssi},
+        bid    => $channel->{_irssi},
+        author => $channel->{topic_by},
+        topic  => $channel->{topic}
+    });
+});
+
 Irssi::signal_add_last("server nick changed", sub {
-    # FIXME:
+    my $server = shift;
+
+    # {"bid":19815,"eid":2751,"type":"you_nickchange","time":1333157256,"highlight":false,"chan":"swn","newnick":"fR","oldnick":"fR_","cid":2283} 
+
+    broadcast_all_buffers($server, {
+        type    => "you_nickchange",
+        newnick => $server->{nick}
+    });
 });
 
 Irssi::signal_add_last("channel mode changed", sub {
-    # FIXME: channel_mode
+    my $channel = shift;
+    my $set_by  = shift;
+
+    # {"bid":187241,"eid":246,"type":"channel_mode","time":1333233783,"highlight":false,"channel":"#testing","from":"fR__","cid":2283,"diff":"+n","newmode":"tn","ops":{"add":[{"mode":"n","param":""}],"remove":[]}} 
+
+    broadcast({
+        type    => "channel_mode",
+        from    => $set_by,
+        newmode => $channel->{mode}
+    });
 });
 
 Irssi::signal_add_last("nick mode changed", sub {
-    # FIXME: channel_mode
+    my $channel = shift;
+    my $nick    = shift;
+    my $set_by  = shift;
+    my $mode    = shift;
+    my $type    = shift;
+
+    # {"bid":187241,"eid":242,"type":"user_channel_mode","time":1333233137,"highlight":false,"from":"fR","cid":2283,"newmode":"","diff":"-o","channel":"#testing","nick":"fR__","ops":{"add":[],"remove":[{"mode":"o","param":"fR__"}]}} 
+    
+    broadcast({
+        type => "user_channel_mode",
+        cid  => $channel->{server}->{_irssi},
+        bid  => $channel->{_irssi},
+        from => $set_by,
+        nick => $nick,
+        diff => $type . $mode
+    });
 });
 
 Irssi::signal_add_last("user mode changed", sub {
-    # FIXME: user_mode
+    my $server = shift;
+    my $old    = shift;
+
+    # {"bid":83378,"eid":3247,"type":"user_mode","time":1333245689,"highlight":false,"nick":"codebutler","cid":10852,"from":"codebutler","newmode":"Zi","diff":"+Zi","ops":{"add":[{"mode":"i","param":""},{"mode":"Z","param":""}],"remove":[]}} 
+    broadcast_all_buffers($server, {
+        type    => "user_mode",
+        newmode => $server->{mode}
+    });
 });
 
 Irssi::signal_add_last("message public", sub {
@@ -437,8 +582,15 @@ Irssi::signal_add_last("message quit", sub {
     my $address = shift;
     my $reason  = shift;
     
-    # FIXME
     # {""bid"":188831,""eid"":23,""type"":""quit"",""time"":1332805542,""highlight"":false,""nick"":""ders"",""msg"":""Client exited"",""hostmask"":""~ders@202.72.107.133"",""cid"":2283,""chan"":""ders""}
+
+    # FIXME: Only to appropriate buffers!
+    broadcast_all_buffers($server, {
+        type     => "quit",
+        nick     => $nick,
+        msg      => $reason,
+        hostmask => $address
+    });
 });
 
 Irssi::signal_add_last("message kick", sub {
@@ -449,12 +601,66 @@ Irssi::signal_add_last("message kick", sub {
     my $address = shift;
     my $reason  = shift;
 
-    # FIXME
     # {"bid":18666,"eid":127370,"type":"kicked_channel","time":1332819750,"highlight":false,"nick":"Kaa","chan":"#swn","kicker":"choong__","msg":"","cid":2283,"hostmask":"~choong@127.0.0.1"}
+
+    broadcast({
+        type     => "kicked_channel",
+        cid      => $server->{_irssi},
+        nick     => $nick,
+        kicker   => $kicker,
+        msg      => $reason,
+        hostmask => $address
+    });
 });
 
-Irssi::signal_add_last("message topic", sub {
-    # FIXME channel_topic
+Irssi::signal_add_last("message nick", sub {
+    my $server  = shift;
+    my $newnick = shift;
+    my $oldnick = shift;
+    my $address = shift;
+
+    # {"bid":19028,"eid":2791,"type":"nickchange","time":1333156403,"highlight":false,"newnick":"fR__","oldnick":"fR_","cid":2283} 
+
+    # FIXME: Only to appropriate buffers!
+    broadcast_all_buffers($server, {
+        type    => "nickchange",
+        newnick => $newnick,
+        oldnick => $oldnick
+    });
+});
+
+Irssi::signal_add_last("message own_nick", sub {
+    my $server  = shift;
+    my $newnick = shift;
+    my $oldnick = shift;
+    my $address = shift;
+
+    # FIXME: Only to appropriate buffers!
+    broadcast_all_buffers($server, {
+        type    => "own_nickchange",
+        newnick => $newnick,
+        oldnick => $oldnick
+    });
+});
+
+Irssi::signal_add_last("message irc notice", sub {
+    my $server  = shift;
+    my $msg     = shift;
+    my $nick    = shift;
+    my $address = shift;
+    my $target  = shift;
+
+    my $buffer = $server->window_item_find($target);
+
+    Irssi::print("NOTICE: $msg $nick $address $target");
+
+    # {"bid":18665,"eid":4136,"type":"notice","time":1332770243,"highlight":false,"server":"seattlewireless.net","msg":"*** Looking up your hostname...","cid":2283,"target":"Auth"}
+    #broadcast({
+    #    type => "notice"
+    #    cid  => $server->{_irssi},
+    #    bid  => $buffer->{_irssi}
+    #    msg  => $msg,
+    #});
 });
 
 $ws_server->listen(3000);
