@@ -45,7 +45,7 @@ use websocket_server;
 { package Irssi::Nick }
 
 my @excluded_from_backlog = (
-    "makeserver", "make_buffer", "connection_deleted", "delete_buffer"
+    "makeserver", "makebuffer", "connection_deleted", "delete_buffer"
 );
 
 my $backlog = {};
