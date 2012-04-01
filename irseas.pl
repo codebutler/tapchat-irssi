@@ -76,6 +76,17 @@ sub make_buffer {
     };
 }
 
+sub make_console_buffer {
+    my $server = shift;
+    {
+        type        => "makebuffer",
+        buffer_type => "console",
+        cid         => $server->{_irssi},
+        bid         => 0,
+        name        => "*"
+    }
+}
+
 sub make_channel_buffer {
     my $channel = shift;
     make_buffer("channel", $channel, {
@@ -161,6 +172,7 @@ sub send_backlog {
 
     foreach my $server (Irssi::servers) {
         send_message($connection, make_server($server));
+        send_message($connection, make_console_buffer($server));
     }
 
     foreach my $channel (Irssi::channels) {
@@ -235,6 +247,13 @@ sub send_message {
 sub broadcast_all_buffers {
     my $server  = shift;
     my $message = shift;
+
+    # console buffer
+    broadcast({
+        cid => $server->{_irssi},
+        bid => 0,
+        %$message
+    });
     
     foreach my $channel ($server->channels) {
         broadcast({
@@ -269,6 +288,7 @@ Irssi::signal_add_last("chatnet create", sub {
     my $chatnet = shift;
 
     broadcast(make_server($chatnet));
+    broadcast(make_console_buffer($chatnet));
 });
 
 Irssi::signal_add_last("chatnet destroyed", sub {
@@ -430,6 +450,8 @@ Irssi::signal_add_last("channel mode changed", sub {
 
     broadcast({
         type    => "channel_mode",
+        cid     => $channel->{server}->{_irssi},
+        bid     => $channel->{_irssi},
         from    => $set_by,
         newmode => $channel->{mode}
     });
@@ -650,17 +672,16 @@ Irssi::signal_add_last("message irc notice", sub {
     my $address = shift;
     my $target  = shift;
 
-    my $buffer = $server->window_item_find($target);
-
     Irssi::print("NOTICE: $msg $nick $address $target");
 
     # {"bid":18665,"eid":4136,"type":"notice","time":1332770243,"highlight":false,"server":"seattlewireless.net","msg":"*** Looking up your hostname...","cid":2283,"target":"Auth"}
-    #broadcast({
-    #    type => "notice"
-    #    cid  => $server->{_irssi},
-    #    bid  => $buffer->{_irssi}
-    #    msg  => $msg,
-    #});
+    broadcast({
+        type   => "notice",
+        cid    => $server->{_irssi},
+        bid    => 0,
+        msg    => $msg,
+        target => $target
+    });
 });
 
 $ws_server->listen(3000);
