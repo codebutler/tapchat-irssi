@@ -30,7 +30,6 @@ use JSON;
 use Data::Dumper;
 use Irssi;
 use Irssi::TextUI;
-use Mojo::Server::Morbo;
 use threads;
 
 use websocket_server;
