@@ -17,8 +17,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+
 use strict;
 use warnings;
+use 5.6.1;
 
 use AnyEvent::Socket;
 use AnyEvent::Handle;
@@ -75,6 +77,12 @@ sub connections {
   @{$self->{_connections}};
 }
 
+sub on_listen {
+  my $self = shift;
+  my $handler = shift;
+  $self->{on_listen} = $handler;
+};
+
 sub on_connection {
     my $self    = shift;
     my $handler = shift;
@@ -95,6 +103,7 @@ sub broadcast {
     }
 };
 
+my $handles = [];
 
 sub listen {
     my $self = shift;
@@ -108,14 +117,19 @@ sub listen {
         my $handshake = Protocol::WebSocket::Handshake::Server->new;
         my $frame     = Protocol::WebSocket::Frame->new;
 
-        my $handle = AnyEvent::Handle->new(fh => $fh);
+        my $cert_file = $ENV{HOME} . "/.irssi/irseas.pem";
+
+        my $handle = new AnyEvent::Handle
+            fh      => $fh,
+            tls     => "accept",
+            tls_ctx => { cert_file => $cert_file };
 
         my $connection = WebSocket::Server::Connection->new(
             handle => $handle,
             frame  => $frame
         );
 
-        $self->add_connection($connection);
+        push(@$handles, $handle);
 
         $handle->on_error(sub {
             my $handle = shift;
@@ -123,7 +137,7 @@ sub listen {
             my $msg    = shift;
 
             # FIXME:
-            print("Error!!! $fatal $msg\n");
+            Irssi::print("Error!!! $fatal $msg");
 
             $handle->destroy;
         });
@@ -148,6 +162,9 @@ sub listen {
                 $handshake->parse($chunk);
                 if ($handshake->is_done) {
                     $handle->push_write($handshake->to_string);
+                    
+                    $self->add_connection($connection);
+
                     $self->{on_connection}($connection);
                     return;
                 }
@@ -163,7 +180,7 @@ sub listen {
     },
     sub {
       my ($fh, $host, $port) = @_;
-      print "Listening on $host:$port\n";
+      $self->{on_listen}($port);
     };
 
     $self->{tcp_server} = $tcp_server;
