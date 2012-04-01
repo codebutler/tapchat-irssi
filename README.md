@@ -12,7 +12,7 @@ More information here soon.
 
 2. Install perl dependencies.
 
-        $ cpanm JSON Protocol::WebSocket AnyEvent::Socket AnyEvent::Handle
+        $ cpanm JSON YAML Protocol::WebSocket AnyEvent::Socket AnyEvent::Handle AnyEvent::TLS Net::SSLeay URI::Query Authen::Passphrase Term::ReadKey
 
 3. Install irseas irssi script.
 
@@ -25,6 +25,17 @@ More information here soon.
 
         $ openssl req -new -x509 -days 365 -nodes -out ~/.irssi/irseas.pem -keyout ~/.irssi/irseas.pem
 
-5. Load the script from within irsii:
+5. Generate config file
+
+        $ perl ~/.irssi/scripts/irseas/make_config.pl
+
+        irseas-irssi configurator
+
+        Port [3000]:
+        Password: 
+
+        Wrote /home/eric/.irssi/irseas.yml
+
+6. Load the script from within irsii:
 
         /run irseas

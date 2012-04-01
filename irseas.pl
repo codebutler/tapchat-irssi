@@ -27,6 +27,8 @@ use File::Basename;
 use lib dirname(Cwd::abs_path(__FILE__));
 
 use JSON;
+use YAML;
+use Authen::Passphrase;
 use Data::Dumper;
 use Irssi;
 use Irssi::TextUI;
@@ -47,6 +49,8 @@ my @excluded_from_backlog = (
 );
 
 my $backlog = {};
+
+our $config = YAML::LoadFile($ENV{HOME} . "/.irssi/irseas.yml");
 
 sub add_to_backlog {
     my $message = shift;
@@ -225,6 +229,19 @@ my $ws_server = new WebSocket::Server;
 $ws_server->on_listen(sub {
     my $port = shift;
     Irssi::print("Irseas listening on port $port");
+});
+
+$ws_server->on_verify_password(sub {
+    my $password = shift;
+
+    my $ppr = Authen::Passphrase->from_rfc2307($config->{password});
+    my $matches = $ppr->match($password);
+
+    unless ($matches) {
+        Irssi::print("Bad password!");
+    }
+
+    return $matches;
 });
 
 $ws_server->on_connection(sub {
@@ -822,4 +839,4 @@ Irssi::signal_add_last("away mode changed", sub {
     }
 });
 
-$ws_server->listen(3000);
+$ws_server->listen($config->{port});

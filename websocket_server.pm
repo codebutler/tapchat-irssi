@@ -57,6 +57,8 @@ sub on_message {
 
 package WebSocket::Server;
 
+use URI::Query;
+
 sub new {
     my $class = shift;
 
@@ -81,6 +83,12 @@ sub on_listen {
   my $self = shift;
   my $handler = shift;
   $self->{on_listen} = $handler;
+};
+
+sub on_verify_password {
+  my $self    = shift;
+  my $handler = shift;
+  $self->{on_verify_password} = $handler;
 };
 
 sub on_connection {
@@ -161,6 +169,19 @@ sub listen {
             if (!$handshake->is_done) {
                 $handshake->parse($chunk);
                 if ($handshake->is_done) {
+
+                    my $resource  = $handshake->res->resource_name;
+                    my $query_str = substr($resource, index($resource, '?') + 1);
+                    my $query     = URI::Query->new($query_str);
+                    my $password  = $query->hash->{password};
+
+                    if (!$self->{on_verify_password}($password)) {
+                        my $response = "HTTP/1.1 403 NOPE\x0d\x0a\x0d\x0a";
+                        $handle->push_write($response);
+                        $handle->push_shutdown;
+                        return;
+                    }
+
                     $handle->push_write($handshake->to_string);
                     
                     $self->add_connection($connection);
