@@ -292,11 +292,18 @@ my $eid = 0;
 sub prepare_message {
     my $message = shift;
 
-    $message->{eid} = $eid; # FIXME
-    $message->{time} = time;
-    $message->{highlight} = JSON::false;
+    unless (exists $message->{eid}) {
+        $message->{eid} = $eid; # FIXME
+        $eid ++;
+    }
 
-    $eid ++;
+    unless (exists $message->{time}) {
+        $message->{time} = time;
+    }
+
+    unless (exists $message->{highlight}) {
+        $message->{highlight} = JSON::false;
+    }
 
     return $message;
 }
