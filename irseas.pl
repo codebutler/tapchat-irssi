@@ -554,9 +554,11 @@ Irssi::signal_add_last("user mode changed", sub {
     my $old    = shift;
 
     # {"bid":83378,"eid":3247,"type":"user_mode","time":1333245689,"highlight":false,"nick":"codebutler","cid":10852,"from":"codebutler","newmode":"Zi","diff":"+Zi","ops":{"add":[{"mode":"i","param":""},{"mode":"Z","param":""}],"remove":[]}} 
-    broadcast_all_buffers($server, {
-        type    => "user_mode",
-        newmode => $server->{mode}
+    broadcast($server, {
+        type     => "user_mode",
+        cid      => $server->{_irssi},
+        bid      => $server->{_irssi},
+        newmode  => $server->{mode}
     });
 });
 
