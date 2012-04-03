@@ -404,7 +404,7 @@ Irssi::signal_add_last("query nick changed", sub {
         type    => "nickchange",
         cid     => $query->{server}->{_irssi},
         bid     => $query->{_irssi},
-        newnick => $query->nick,
+        newnick => $query->{nick},
         oldnick => $orignick
     });
 });
@@ -554,7 +554,7 @@ Irssi::signal_add_last("user mode changed", sub {
     my $old    = shift;
 
     # {"bid":83378,"eid":3247,"type":"user_mode","time":1333245689,"highlight":false,"nick":"codebutler","cid":10852,"from":"codebutler","newmode":"Zi","diff":"+Zi","ops":{"add":[{"mode":"i","param":""},{"mode":"Z","param":""}],"remove":[]}} 
-    broadcast($server, {
+    broadcast({
         type     => "user_mode",
         cid      => $server->{_irssi},
         bid      => $server->{_irssi},
@@ -770,7 +770,6 @@ Irssi::signal_add_last("message own_nick", sub {
     my $oldnick = shift;
     my $address = shift;
 
-    # FIXME: Only to appropriate buffers!
     broadcast_all_buffers($server, {
         type    => "own_nickchange",
         newnick => $newnick,
