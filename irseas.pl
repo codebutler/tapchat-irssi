@@ -493,6 +493,8 @@ Irssi::signal_add_last("channel sync", sub {
 Irssi::signal_add_last("channel topic changed", sub {
     my $channel = shift;
 
+    return unless $channel->{topic_by};
+
     # {"bid":187241,"eid":227,"type":"channel_topic","time":1333156705,"highlight":false,"chan":"#testing","author":"fR","time":1333156705,"topic":"foo","cid":2283} 
 
     broadcast({
@@ -519,15 +521,24 @@ Irssi::signal_add_last("channel mode changed", sub {
     my $channel = shift;
     my $set_by  = shift;
 
-    # {"bid":187241,"eid":246,"type":"channel_mode","time":1333233783,"highlight":false,"channel":"#testing","from":"fR__","cid":2283,"diff":"+n","newmode":"tn","ops":{"add":[{"mode":"n","param":""}],"remove":[]}} 
-
-    broadcast({
-        type    => "channel_mode",
-        cid     => $channel->{server}->{_irssi},
-        bid     => $channel->{_irssi},
-        from    => $set_by,
-        newmode => $channel->{mode}
-    });
+    if ($set_by eq $channel->{server}->{real_address}) {
+        # {"bid":193328,"eid":5,"type":"channel_mode_is","time":1333583296,"highlight":false,"channel":"#asdsad","server":"seattlewireless.net","cid":2283,"diff":"+nt","newmode":"nt","ops":{"add":[{"mode":"t","param":""},{"mode":"n","param":""}],"remove":[]}} 
+        broadcast({
+            type => "channel_mode_is",
+            cid     => $channel->{server}->{_irssi},
+            bid     => $channel->{_irssi},
+            newmode => $channel->{mode}
+        });
+    } else {
+        # {"bid":187241,"eid":246,"type":"channel_mode","time":1333233783,"highlight":false,"channel":"#testing","from":"fR__","cid":2283,"diff":"+n","newmode":"tn","ops":{"add":[{"mode":"n","param":""}],"remove":[]}} 
+        broadcast({
+            type    => "channel_mode",
+            cid     => $channel->{server}->{_irssi},
+            bid     => $channel->{_irssi},
+            from    => $set_by,
+            newmode => $channel->{mode}
+        });
+    }
 });
 
 Irssi::signal_add_last("nick mode changed", sub {
@@ -683,6 +694,8 @@ Irssi::signal_add_last("message join", sub {
 
     # "{""bid"":18666,""eid"":127253,""type"":""joined_channel"",""time"":1332789632,""highlight"":false,""nick"":""Jetzee"",""chan"":""#swn"",""hostmask"":""~olo@c-67-171-27-133.hsd1.wa.comcast.net"",""cid"":2283}
 
+    return if $nick eq $server->{nick};
+
     $channel = $server->window_item_find($channel);
 
     broadcast({
@@ -699,6 +712,8 @@ Irssi::signal_add_last("message part", sub {
     my $channel = shift;
     my $nick    = shift;
     my $address = shift;
+
+    return if $nick eq $server->{nick};
 
     $channel = $server->window_item_find($channel);
 
