@@ -207,4 +207,11 @@ sub listen {
     $self->{tcp_server} = $tcp_server;
 };
 
+sub stop {
+    my $self = shift;
+
+    $handles = [];
+    $self->{tcp_server} = undef;
+};
+
 1;

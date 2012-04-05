@@ -865,4 +865,11 @@ Irssi::signal_add_last("away mode changed", sub {
     }
 });
 
+Irssi::signal_add_last("script destroyed", sub {
+    if ($ws_server) {
+      $ws_server->stop();
+      $ws_server = undef;
+    }
+});
+
 $ws_server->listen($config->{port});
