@@ -36,6 +36,10 @@ use threads;
 
 use websocket_server;
 
+use Carp;
+$SIG{__WARN__} = \&carp;
+$SIG{__DIE__} = \&confess;
+
 # Sometimes, for some unknown reason, perl emits warnings like the following:
 #   Can't locate package Irssi::Nick for @Irssi::Irc::Nick::ISA
 # This package statement is here to suppress it.
