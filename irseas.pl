@@ -376,12 +376,69 @@ Irssi::signal_add_last("channel created", sub {
     my $channel = shift;
 
     broadcast(make_channel_buffer($channel));
-    broadcast(make_channel_init($channel));
 });
 
 Irssi::signal_add_last("channel destroyed", sub {
     my $channel = shift;
     broadcast(make_delete_buffer($channel));
+});
+
+Irssi::signal_add_last("channel sync", sub {
+    my $channel = shift;
+    broadcast(make_channel_init($channel));
+});
+
+Irssi::signal_add_last("channel joined", sub {
+    my $channel = shift;
+
+    # {"bid":189344,"eid":2,"type":"you_joined_channel","time":1332826098,"highlight":false,"nick":"fR","chan":"#bar","hostmask":"~u673@irccloud.com","cid":2283}
+
+    broadcast({
+        type => "you_joined_channel",
+        cid  => $channel->{server}->{_irssi},
+        bid  => $channel->{_irssi},
+        chan => $channel->{name}
+    });
+});
+
+Irssi::signal_add_last("channel topic changed", sub {
+    my $channel = shift;
+
+    return unless $channel->{topic_by};
+
+    # {"bid":187241,"eid":227,"type":"channel_topic","time":1333156705,"highlight":false,"chan":"#testing","author":"fR","time":1333156705,"topic":"foo","cid":2283} 
+
+    broadcast({
+        type   => "channel_topic",
+        cid    => $channel->{server}->{_irssi},
+        bid    => $channel->{_irssi},
+        author => $channel->{topic_by},
+        topic  => $channel->{topic}
+    });
+});
+
+Irssi::signal_add_last("channel mode changed", sub {
+    my $channel = shift;
+    my $set_by  = shift;
+
+    if ($set_by eq $channel->{server}->{real_address}) {
+        # {"bid":193328,"eid":5,"type":"channel_mode_is","time":1333583296,"highlight":false,"channel":"#asdsad","server":"seattlewireless.net","cid":2283,"diff":"+nt","newmode":"nt","ops":{"add":[{"mode":"t","param":""},{"mode":"n","param":""}],"remove":[]}} 
+        broadcast({
+            type => "channel_mode_is",
+            cid     => $channel->{server}->{_irssi},
+            bid     => $channel->{_irssi},
+            newmode => $channel->{mode}
+        });
+    } else {
+        # {"bid":187241,"eid":246,"type":"channel_mode","time":1333233783,"highlight":false,"channel":"#testing","from":"fR__","cid":2283,"diff":"+n","newmode":"tn","ops":{"add":[{"mode":"n","param":""}],"remove":[]}} 
+        broadcast({
+            type    => "channel_mode",
+            cid     => $channel->{server}->{_irssi},
+            bid     => $channel->{_irssi},
+            from    => $set_by,
+            newmode => $channel->{mode}
+        });
+    }
 });
 
 Irssi::signal_add_last("query created", sub {
@@ -469,43 +526,6 @@ Irssi::signal_add_last("server quit", sub {
     });
 });
 
-Irssi::signal_add_last("channel joined", sub {
-    my $channel = shift;
-
-    # {"bid":189344,"eid":2,"type":"you_joined_channel","time":1332826098,"highlight":false,"nick":"fR","chan":"#bar","hostmask":"~u673@irccloud.com","cid":2283}
-
-    broadcast({
-        type => "you_joined_channel",
-        cid  => $channel->{server}->{_irssi},
-        bid  => $channel->{_irssi},
-        chan => $channel->{name}
-    });
-});
-
-Irssi::signal_add_last("channel wholist", sub {
-    # FIXME: Fire you_joined_channel here instead?
-});
-
-Irssi::signal_add_last("channel sync", sub {
-    # FIXME: Or here?
-});
-
-Irssi::signal_add_last("channel topic changed", sub {
-    my $channel = shift;
-
-    return unless $channel->{topic_by};
-
-    # {"bid":187241,"eid":227,"type":"channel_topic","time":1333156705,"highlight":false,"chan":"#testing","author":"fR","time":1333156705,"topic":"foo","cid":2283} 
-
-    broadcast({
-        type   => "channel_topic",
-        cid    => $channel->{server}->{_irssi},
-        bid    => $channel->{_irssi},
-        author => $channel->{topic_by},
-        topic  => $channel->{topic}
-    });
-});
-
 Irssi::signal_add_last("server nick changed", sub {
     my $server = shift;
 
@@ -515,30 +535,6 @@ Irssi::signal_add_last("server nick changed", sub {
         type    => "you_nickchange",
         newnick => $server->{nick}
     });
-});
-
-Irssi::signal_add_last("channel mode changed", sub {
-    my $channel = shift;
-    my $set_by  = shift;
-
-    if ($set_by eq $channel->{server}->{real_address}) {
-        # {"bid":193328,"eid":5,"type":"channel_mode_is","time":1333583296,"highlight":false,"channel":"#asdsad","server":"seattlewireless.net","cid":2283,"diff":"+nt","newmode":"nt","ops":{"add":[{"mode":"t","param":""},{"mode":"n","param":""}],"remove":[]}} 
-        broadcast({
-            type => "channel_mode_is",
-            cid     => $channel->{server}->{_irssi},
-            bid     => $channel->{_irssi},
-            newmode => $channel->{mode}
-        });
-    } else {
-        # {"bid":187241,"eid":246,"type":"channel_mode","time":1333233783,"highlight":false,"channel":"#testing","from":"fR__","cid":2283,"diff":"+n","newmode":"tn","ops":{"add":[{"mode":"n","param":""}],"remove":[]}} 
-        broadcast({
-            type    => "channel_mode",
-            cid     => $channel->{server}->{_irssi},
-            bid     => $channel->{_irssi},
-            from    => $set_by,
-            newmode => $channel->{mode}
-        });
-    }
 });
 
 Irssi::signal_add_last("nick mode changed", sub {
