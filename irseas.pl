@@ -82,7 +82,7 @@ sub make_server {
     { 
         "type"         => "makeserver", 
         "cid"          => $server->{_irssi},
-        "name"         => $server->{chatnet},
+        "name"         => $server->{chatnet} || $server->{tag},
         "nick"         => $server->{nick},
         "realname"     => $server->{realname},
         "hostname"     => $server->{address},
