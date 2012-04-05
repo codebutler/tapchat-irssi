@@ -44,7 +44,10 @@ sub send {
   my $self = shift;
   my $data = shift;
 
-  my $message = $self->{frame}->new($data);
+  my $message = $self->{frame}->new(
+      max_payload_size => 99999999999,
+      buffer           => $data
+  );
 
   $self->{handle}->push_write($message->to_bytes);
 };
