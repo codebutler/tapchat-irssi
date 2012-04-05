@@ -357,21 +357,6 @@ sub broadcast {
     add_to_backlog($message);
 };
 
-Irssi::signal_add_last("chatnet create", sub {
-    my $chatnet = shift;
-
-    broadcast(make_server($chatnet));
-    broadcast(make_console_buffer($chatnet));
-});
-
-Irssi::signal_add_last("chatnet destroyed", sub {
-    my $chatnet = shift;
-    broadcast({
-        type => "connection_deleted",
-        cid  => $chatnet->{_irssi}
-    });
-});
-
 Irssi::signal_add_last("channel created", sub {
     my $channel = shift;
 
@@ -421,7 +406,7 @@ Irssi::signal_add_last("channel mode changed", sub {
     my $channel = shift;
     my $set_by  = shift;
 
-    if ($set_by eq $channel->{server}->{real_address}) {
+    if ((!$set_by) || ($set_by eq $channel->{server}->{real_address})) {
         # {"bid":193328,"eid":5,"type":"channel_mode_is","time":1333583296,"highlight":false,"channel":"#asdsad","server":"seattlewireless.net","cid":2283,"diff":"+nt","newmode":"nt","ops":{"add":[{"mode":"t","param":""},{"mode":"n","param":""}],"remove":[]}} 
         broadcast({
             type => "channel_mode_is",
@@ -484,6 +469,9 @@ Irssi::signal_add_last("server connecting", sub {
 Irssi::signal_add_last("server connected", sub {
     my $server = shift;
 
+    broadcast(make_server($server));
+    broadcast(make_console_buffer($server));
+
     # {"bid":18665,"eid":4135,"type":"connected","time":1332770243,"highlight":false,"chan":"*","hostname":"irc.seattlewireless.net","port":7000,"cid":2283,"ssl":true},
 
     broadcast_all_buffers($server, {
@@ -511,6 +499,11 @@ Irssi::signal_add_last("server disconnected", sub {
 
     broadcast_all_buffers($server, {
         type => "socket_closed"
+    });
+
+    broadcast({
+        type => "connection_deleted",
+        cid  => $server->{_irssi}
     });
 });
 
