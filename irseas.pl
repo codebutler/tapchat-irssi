@@ -445,10 +445,12 @@ Irssi::signal_add_last("query nick changed", sub {
     my $query    = shift;
     my $orignick = shift;
     
+    my $server = $query->{server};
+
     # {"bid":19028,"eid":2791,"type":"nickchange","time":1333156403,"highlight":false,"newnick":"fR__","oldnick":"fR_","cid":2283} 
     broadcast({
-        type    => "nickchange",
-        cid     => $query->{server}->{_irssi},
+        type    => ($orignick eq $server->{nick}) ? "you_nickchange" : "nickchange",
+        cid     => $server->{_irssi},
         bid     => $query->{_irssi},
         newnick => $query->{nick},
         oldnick => $orignick
@@ -523,15 +525,42 @@ Irssi::signal_add_last("server quit", sub {
     });
 });
 
+Irssi::signal_add_last("nicklist changed", sub {
+    my $channel  = shift;
+    my $nick     = shift;
+    my $old_nick = shift;
+
+    my $server = $channel->{server};
+
+    broadcast({
+        type    => ($nick->{nick} eq $server->{nick}) ? "you_nickchange" : "nickchange",
+        cid     => $server->{_irssi},
+        bid     => $channel->{_irssi},
+        newnick => $nick->{nick},
+        oldnick => $old_nick
+    });
+});
+
 Irssi::signal_add_last("server nick changed", sub {
     my $server = shift;
 
     # {"bid":19815,"eid":2751,"type":"you_nickchange","time":1333157256,"highlight":false,"chan":"swn","newnick":"fR","oldnick":"fR_","cid":2283} 
 
-    broadcast_all_buffers($server, {
+    broadcast({
+        cid     => $server->{_irssi},
+        bid     => $server->{_irssi},
         type    => "you_nickchange",
         newnick => $server->{nick}
     });
+
+    foreach my $query (Irssi::queries) {
+        broadcast({
+            cid     => $server->{_irssi},
+            bid     => $query->{_irssi},
+            type    => "you_nickchange",
+            newnick => $server->{nick}
+        });
+    }
 });
 
 Irssi::signal_add_last("event connected", sub {
@@ -763,35 +792,6 @@ Irssi::signal_add_last("message kick", sub {
         kicker   => $kicker,
         msg      => $reason,
         hostmask => $address
-    });
-});
-
-Irssi::signal_add_last("message nick", sub {
-    my $server  = shift;
-    my $newnick = shift;
-    my $oldnick = shift;
-    my $address = shift;
-
-    # {"bid":19028,"eid":2791,"type":"nickchange","time":1333156403,"highlight":false,"newnick":"fR__","oldnick":"fR_","cid":2283} 
-
-    # FIXME: Only to appropriate buffers!
-    broadcast_all_buffers($server, {
-        type    => "nickchange",
-        newnick => $newnick,
-        oldnick => $oldnick
-    });
-});
-
-Irssi::signal_add_last("message own_nick", sub {
-    my $server  = shift;
-    my $newnick = shift;
-    my $oldnick = shift;
-    my $address = shift;
-
-    broadcast_all_buffers($server, {
-        type    => "own_nickchange",
-        newnick => $newnick,
-        oldnick => $oldnick
     });
 });
 
