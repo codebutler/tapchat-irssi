@@ -537,6 +537,16 @@ Irssi::signal_add_last("server nick changed", sub {
     });
 });
 
+Irssi::signal_add_last("event connected", sub {
+    my $server = shift;
+
+    # {"bid":18665,"eid":4143,"type":"connecting_finished","time":1332770244,"highlight":false,"cid":2283},
+
+    broadcast_all_buffers($server, {
+        type => "connecting_finished"
+    });
+});
+
 Irssi::signal_add_last("nick mode changed", sub {
     my $channel = shift;
     my $nick    = shift;
