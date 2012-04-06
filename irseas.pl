@@ -758,7 +758,7 @@ Irssi::signal_add_last("message part", sub {
     });
 });
 
-Irssi::signal_add_last("message quit", sub {
+Irssi::signal_add_first("message quit", sub {
     my $server  = shift;
     my $nick    = shift;
     my $address = shift;
@@ -766,13 +766,30 @@ Irssi::signal_add_last("message quit", sub {
     
     # {""bid"":188831,""eid"":23,""type"":""quit"",""time"":1332805542,""highlight"":false,""nick"":""ders"",""msg"":""Client exited"",""hostmask"":""~ders@202.72.107.133"",""cid"":2283,""chan"":""ders""}
 
-    # FIXME: Only to appropriate buffers!
-    broadcast_all_buffers($server, {
-        type     => "quit",
-        nick     => $nick,
-        msg      => $reason,
-        hostmask => $address
-    });
+    foreach my $channel (Irssi::channels) {
+        if ($channel->nick_find($nick)) {
+            broadcast({
+                cid      => $server->{_irssi},
+                bid      => $channel->{_irssi},
+                type     => "quit",
+                nick     => $nick,
+                msg      => $reason,
+                hostmask => $address
+            });
+        }
+    }
+
+    my $query = $server->query_find($nick);
+    if ($query) {
+        broadcast({
+            cid      => $server->{_irssi},
+            bid      => $query->{_irssi},
+            type     => "quit",
+            nick     => $nick,
+            msg      => $reason,
+            hostmask => $address
+        });
+    }
 });
 
 Irssi::signal_add_last("message kick", sub {
