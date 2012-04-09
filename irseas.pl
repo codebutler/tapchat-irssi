@@ -737,6 +737,17 @@ Irssi::signal_add_last("message join", sub {
         nick     => $nick,
         hostmask => $address
     });
+
+    my $query = $server->query_find($nick);
+    if ($query) {
+        broadcast({
+            cid      => $server->{_irssi},
+            type     => "joined_channel",
+            bid      => $query->{_irssi},
+            nick     => $nick,
+            hostmask => $address
+        });
+    }
 });
 
 Irssi::signal_add_last("message part", sub {
