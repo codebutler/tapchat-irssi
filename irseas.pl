@@ -587,7 +587,7 @@ Irssi::signal_add_last("nick mode changed", sub {
         cid  => $channel->{server}->{_irssi},
         bid  => $channel->{_irssi},
         from => $set_by,
-        nick => $nick,
+        nick => $nick->{nick},
         diff => $type . $mode
     });
 });
