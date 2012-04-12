@@ -29,6 +29,8 @@ use AE;
 use Protocol::WebSocket::Handshake::Server;
 use Protocol::WebSocket::Frame;
 
+use Data::ArrayList;
+
 package WebSocket::Server::Connection;
 
 sub new {
@@ -36,7 +38,7 @@ sub new {
     my %params = @_;
 
     bless {
-      %params
+        %params
     }, $class;
 };
 
@@ -64,53 +66,29 @@ use URI::Query;
 
 sub new {
     my $class = shift;
+    my %params = @_;
 
-    my $self = { _connections => [] };
-    bless($self, $class);
-    return $self;
-};
-
-sub add_connection {
-    my $self = shift;
-    my $conn = shift;
-    push @{$self->{_connections}}, $conn;
+    bless {
+        connections => new Data::ArrayList,
+        %params
+    }, $class;
 };
 
 sub connections {
-  my $self = shift;
-  my $conn = shift;
-  @{$self->{_connections}};
+    my $self = shift;
+    return $self->{connections};
 }
-
-sub on_listen {
-  my $self = shift;
-  my $handler = shift;
-  $self->{on_listen} = $handler;
-};
-
-sub on_verify_password {
-  my $self    = shift;
-  my $handler = shift;
-  $self->{on_verify_password} = $handler;
-};
-
-sub on_connection {
-    my $self    = shift;
-    my $handler = shift;
-    $self->{on_connection} = $handler;
-};
-
-sub on_close {
-    my $self    = shift;
-    my $handler = shift;
-    $self->{on_close} = $handler;
-};
 
 sub broadcast {
     my $self    = shift;
     my $message = shift;
-    foreach my $connection ($self->connections) {
-        $connection->send($message);
+
+    unless ($self->connections->isEmpty) {
+        my $iter = $self->connections->listIterator();
+        while ($iter->hasNext) {
+            my $connection = $iter->next;
+            $connection->send($message);
+        }
     }
 };
 
@@ -137,7 +115,9 @@ sub listen {
 
         my $connection = WebSocket::Server::Connection->new(
             handle => $handle,
-            frame  => $frame
+            frame  => $frame,
+            host   => $host,
+            port   => $port
         );
 
         push(@$handles, $handle);
@@ -157,10 +137,14 @@ sub listen {
             my $handle = shift;
             my $fatal  = shift;
             my $msg    = shift;
+
             $handle->destroy;
 
-            # FIXME: $self->{connections}.remove($connection);
-            $self->{on_close}($connection)
+            my $idx = $self->connections->indexOf(sub { $_ eq $connection });
+            if ($idx >= 0) {
+                $self->connections->remove($idx);
+                $self->{on_close}($connection)
+            }
         });
 
         $handle->on_read(sub {
@@ -187,7 +171,7 @@ sub listen {
 
                     $handle->push_write($handshake->to_string);
                     
-                    $self->add_connection($connection);
+                    $self->connections->add($connection);
 
                     $self->{on_connection}($connection);
                     return;
