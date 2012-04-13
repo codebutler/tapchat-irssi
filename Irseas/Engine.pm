@@ -25,7 +25,6 @@ sub new {
     bless {
         db          => $db,
         connections => new Data::ArrayList,
-        eid         => $db->latest_eid + 1,
         %params
     }, $class;
 }
@@ -82,9 +81,22 @@ sub broadcast {
     my $self    = shift;
     my $message = shift;
 
+    if (ref($message) eq 'ARRAY') {
+        foreach my $item (@$message) {
+            $self->broadcast($item);
+        }
+        return;
+    }
+
     $message = $self->prepare_message($message);
 
-    $self->add_to_backlog($message);
+    my $eid = $self->add_to_backlog($message);
+
+    if ($eid) {
+        $message->{eid} = $eid;
+    } else {
+        $message->{eid} = -1;
+    }
 
     my $json = encode_json($message);
 
@@ -149,18 +161,23 @@ sub add_to_backlog {
     my $self    = shift;
     my $message = shift;
 
-    my %excludes = map { $_ => 1 } @EXCULDED_FROM_BACKLOG;
-    if (exists($excludes{$message->{type}})) {
+    my $cid  = $message->{cid};
+    my $bid  = $message->{bid};
+    my $type = $message->{type};
+    my $time = $message->{time};
+
+    unless ($bid) {
         return;
     }
 
-    my $eid  = $message->{eid};
-    my $cid  = $message->{cid};
-    my $bid  = $message->{bid};
-    my $data = encode_json($message);
-    my $time = $message->{time};
+    my %excludes = map { $_ => 1 } @EXCULDED_FROM_BACKLOG;
+    if (exists($excludes{$type})) {
+        return;
+    }
 
-    $self->{db}->insert_event($eid, $cid, $bid, $data, $time);
+    my $data = encode_json($message);
+
+    return $self->{db}->insert_event($cid, $bid, $data, $time);
 };
 
 sub get_backlog {
@@ -172,7 +189,11 @@ sub get_backlog {
     return sub {
         return undef if $iter->is_exhausted();
         $row = $iter->value();
-        return decode_json($row->{data});
+        $message = decode_json($row->{data});
+        $message->{is_backlog} = JSON::true;
+        $message->{eid} = $row->{eid};
+
+        return $message;
     };
 };
 
@@ -180,9 +201,8 @@ sub prepare_message {
     my $self    = shift;
     my $message = shift;
 
-    unless (exists $message->{eid}) {
-        $message->{eid} = $self->{eid};
-        $self->{eid} ++;
+    unless ($message->{eid}) {
+        $message->{eid} = -1;
     }
 
     unless (exists $message->{time}) {

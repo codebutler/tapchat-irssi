@@ -3,7 +3,6 @@ sub add_signals {
 
     Irssi::signal_add_last("channel created", sub {
         my $channel = shift;
-
         $engine->broadcast($engine->make_channel_buffer($channel));
     });
 

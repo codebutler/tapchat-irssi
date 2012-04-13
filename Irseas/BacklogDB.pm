@@ -32,11 +32,6 @@ sub setup {
       { RaiseError => 1 });
 }
 
-sub latest_eid {
-    my $self = shift;
-    return $self->{db}->selectrow_array("SELECT MAX(eid) FROM events", undef);
-}
-
 sub get_cid {
     my $self = shift;
     my $name = shift;
@@ -94,22 +89,22 @@ sub get_bid {
 sub insert_event {
     my $self = shift;
 
-    my $eid  = shift;
     my $cid  = shift;
     my $bid  = shift;
     my $data = shift;
     my $time = shift;
 
     my $st = $self->{db}->prepare("
-        INSERT INTO events (eid, cid, bid, data, created_at) 
-        VALUES (:eid, :cid, :bid, :data, :created_at)
+        INSERT INTO events (cid, bid, data, created_at) 
+        VALUES (:cid, :bid, :data, :created_at)
     ");
-    $st->bind_param(":eid",        $eid);
     $st->bind_param(":cid",        $cid);
     $st->bind_param(":bid",        $bid);
     $st->bind_param(":data",       $data);
     $st->bind_param(":created_at", $time);
     $st->execute();
+
+    return $self->{db}->func('last_insert_rowid')
 };
 
 sub select_events {
@@ -123,7 +118,7 @@ sub select_events {
         SELECT eid, cid, bid, data
         FROM events
         WHERE bid = ?
-        ORDER BY created_at DESC
+        ORDER BY created_at ASC
         LIMIT ?
     ", @bind);
 };

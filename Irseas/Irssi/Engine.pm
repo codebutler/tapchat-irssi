@@ -69,6 +69,10 @@ sub on_message {
     my $self    = shift;
     my $message = shift;
 
+    unless ($message->{cid}) {
+        return;
+    }
+
     my $server = $self->find_server($message->{cid});
     unless ($server) {
         die "Server not found! " . $message->{cid};
@@ -210,16 +214,23 @@ sub make_buffer {
     my $item  = shift;
     my $extra = shift || {};
 
-    {
+    my $messages = [];
+
+    push(@$messages, {
         "type"        => "makebuffer",
         "buffer_type" => $type,
         "cid"         => $self->get_cid($item->{server}),
         "bid"         => $self->get_bid($item),
         "name"        => $item->{name},
         %$extra
-    };
+    });
 
-    # FIXME: Replay any backlog for this!
+    my $iter = $self->get_backlog($self->get_bid($item));
+    while (my $message = $iter->()) {
+        push(@$messages, $message);
+    }
+
+    return $messages;
 };
 
 sub make_console_buffer {
