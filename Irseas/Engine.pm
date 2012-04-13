@@ -60,7 +60,7 @@ sub add_connection {
     $self->connections->add($connection);
     $connection->on_message(sub {
         my $message = shift;
-        $self->on_message(decode_json($message));
+        $self->on_message($connection, decode_json($message));
     });
 
     $self->send($connection, $self->make_header);
@@ -177,7 +177,13 @@ sub add_to_backlog {
 
     my $data = encode_json($message);
 
-    return $self->{db}->insert_event($cid, $bid, $data, $time);
+    my $eid = $self->{db}->insert_event($bid, $data, $time);
+
+    if ($bid eq $self->{selected_buffer}) {
+        $self->{db}->set_buffer_last_seen_eid($bid, $eid);
+    }
+
+    return $eid;
 };
 
 sub get_backlog {

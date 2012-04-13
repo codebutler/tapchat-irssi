@@ -25,6 +25,7 @@ package Irseas::Irssi::Engine;
 use Authen::Passphrase;
 use Crypt::RandPasswd;
 use Data::Dumper;
+use JSON;
 
 use Irssi;
 use Irssi::TextUI;
@@ -66,10 +67,34 @@ sub log {
 }
 
 sub on_message {
-    my $self    = shift;
-    my $message = shift;
+    my $self       = shift;
+    my $connection = shift;
+    my $message    = shift;
+
+    my $method = $message->{_method};
 
     unless ($message->{cid}) {
+        if ($method eq "heartbeat") {
+            $self->{selected_buffer} = $message->{selectedBuffer};
+
+            my $seen_eids = decode_json($message->{seenEids});
+            foreach my $cid (keys %{$seen_eids}) {
+                my $buffers = $seen_eids->{$cid};
+                foreach my $bid (keys %{$buffers}) {
+                    my $eid = $buffers->{$bid};
+                    $self->{db}->set_buffer_last_seen_eid($bid, $eid);
+                }
+            }
+
+            # FIXME: Only need to send seen_eids that have changed
+            my $updated_seen_eids = $self->{db}->get_all_last_seen_eids;
+
+            $self->send($connection, {
+                type     => 'heartbeat_echo',
+                seenEids => $updated_seen_eids
+            });
+
+        }
         return;
     }
 
@@ -78,21 +103,22 @@ sub on_message {
         die "Server not found! " . $message->{cid};
     }
 
-    if ($message->{_method} eq "say") {
+    if ($method eq "say") {
         my $target = $message->{to};
         my $text   = $message->{msg};
 
         $server->command("MSG " . $target . " " . $text);
 
-    } elsif ($message->{_method} eq "join") {
+    } elsif ($method eq "join") {
         my $channel = $message->{channel};
 
         $server->command("JOIN " . $channel);
 
-    } elsif ($message->{_method} eq "part") {
+    } elsif ($method eq "part") {
         my $channel = $message->{channel};
 
         $server->command("PART " . $channel);
+
     }
 };
 
@@ -216,14 +242,21 @@ sub make_buffer {
 
     my $messages = [];
 
-    push(@$messages, {
+    my $message = {
         "type"        => "makebuffer",
         "buffer_type" => $type,
         "cid"         => $self->get_cid($item->{server}),
         "bid"         => $self->get_bid($item),
         "name"        => $item->{name},
         %$extra
-    });
+    };
+
+    my $eid = $self->{db}->get_buffer_last_seen_eid($message->{bid});
+    if ($eid) {
+        $message->{last_seen_eid} = $eid;
+    }
+
+    push(@$messages, $message);
 
     my $iter = $self->get_backlog($self->get_bid($item));
     while (my $message = $iter->()) {

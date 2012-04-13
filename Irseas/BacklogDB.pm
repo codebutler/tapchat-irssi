@@ -48,9 +48,10 @@ sub get_cid {
 
     } else {
         $st = $self->{db}->prepare("
-            INSERT INTO connections (name) VALUES (:name)
+            INSERT INTO connections (name, created_at) VALUES (:name, :created_at)
         ");
         $st->bind_param(":name", $name);
+        $st->bind_param(":created_at", time);
         $st->execute;
         
         return $self->{db}->func('last_insert_rowid')
@@ -76,29 +77,75 @@ sub get_bid {
 
     } else {
         $st = $self->{db}->prepare("
-            INSERT INTO buffers (cid, name) VALUES (:cid, :name)
+            INSERT INTO buffers (cid, name, created_at) VALUES (:cid, :name, :created_at)
         ");
         $st->bind_param(":cid",  $cid);
         $st->bind_param(":name", $name);
+        $st->bind_param(":created_at", time);
         $st->execute;
         
         return $self->{db}->func('last_insert_rowid')
     }
 };
 
+sub get_buffer_last_seen_eid {
+    my $self = shift;
+    my $bid  = shift;
+
+    my $st = $self->{db}->prepare("
+        SELECT last_seen_eid FROM buffers
+        WHERE bid = :bid
+    ");
+    $st->bind_param(":bid", $bid);
+
+    my $row = $self->{db}->selectrow_hashref($st);
+
+    return $row->{last_seen_eid};
+};
+
+sub set_buffer_last_seen_eid {
+    my $self = shift;
+    my $bid  = shift;
+    my $eid  = shift;
+
+    my $st = $self->{db}->prepare("
+        UPDATE buffers
+        SET last_seen_eid = :eid,
+        updated_at = :time
+        WHERE bid = :bid
+    ");
+    $st->bind_param(":eid", $eid);
+    $st->bind_param(":bid", $bid);
+    $st->bind_param(":time", time);
+    
+    $st->execute();
+};
+
+sub get_all_last_seen_eids {
+    my $self = shift;
+
+    my $result = $self->{db}->selectall_hashref("SELECT cid, bid, last_seen_eid FROM buffers WHERE last_seen_eid IS NOT NULL", [ 'cid', 'bid' ]);
+
+    for my $cid (keys %{$result}) {
+        for my $bid (keys %{$result->{$cid}}) {
+            $result->{$cid}->{$bid} = $result->{$cid}->{$bid}->{last_seen_eid};
+        }
+    };
+
+    return $result;
+};
+
 sub insert_event {
     my $self = shift;
 
-    my $cid  = shift;
     my $bid  = shift;
     my $data = shift;
     my $time = shift;
 
     my $st = $self->{db}->prepare("
-        INSERT INTO events (cid, bid, data, created_at) 
-        VALUES (:cid, :bid, :data, :created_at)
+        INSERT INTO events (bid, data, created_at) 
+        VALUES (:bid, :data, :created_at)
     ");
-    $st->bind_param(":cid",        $cid);
     $st->bind_param(":bid",        $bid);
     $st->bind_param(":data",       $data);
     $st->bind_param(":created_at", $time);
@@ -115,11 +162,16 @@ sub select_events {
     my @bind = ( $bid, $limit );
 
     return idb_rows($self->{db}, "
-        SELECT eid, cid, bid, data
+        SELECT eid, bid, data
         FROM events
-        WHERE bid = ?
-        ORDER BY created_at ASC
-        LIMIT ?
+        WHERE eid IN (
+            SELECT eid
+            FROM EVENTS
+            WHERE bid = ?
+            ORDER BY eid DESC
+            LIMIT ?
+        )
+        ORDER BY eid ASC
     ", @bind);
 };
 
