@@ -253,15 +253,18 @@ sub add_signals {
 
         my $channel = $server->window_item_find($target);
 
+        my $highlight = $engine->nick_match_msg($msg, $server->{nick});
+
         # {"bid":187241,"eid":201,"type":"buffer_msg","time":1333066198,"highlight":false,"from":"fR","msg":"asd","chan":"#testing","cid":2283,"self":false,"reqid":55} 
         $engine->broadcast({
-            type => "buffer_msg",
-            cid  => $engine->get_cid($server),
-            from => $nick,
-            chan => $channel->{name},
-            bid  => $engine->get_bid($channel),
-            msg  => $msg,
-            self => JSON::false
+            type      => "buffer_msg",
+            cid       => $engine->get_cid($server),
+            from      => $nick,
+            chan      => $channel->{name},
+            bid       => $engine->get_bid($channel),
+            msg       => $msg,
+            highlight => $highlight,
+            self      => JSON::false
         });
     });
 
@@ -273,14 +276,17 @@ sub add_signals {
 
         my $query = $server->window_item_find($nick);
 
+        my $highlight = $engine->nick_match_msg($msg, $server->{nick});
+
         # "{""bid"":103331,""eid"":2362,""type"":""buffer_msg"",""time"":1332803201,""highlight"":false,""from"":""fR"",""msg"":""hey you there?"",""chan"":""choong"",""cid"":2283,""self"":false},
         $engine->broadcast({
-            type => "buffer_msg",
-            cid  => $engine->get_cid($server),
-            from => $nick,
-            bid  => $engine->get_bid($query),
-            msg  => $msg,
-            self => JSON::false
+            type      => "buffer_msg",
+            cid       => $engine->get_cid($server),
+            from      => $nick,
+            bid       => $engine->get_bid($query),
+            msg       => $msg,
+            highlight => $highlight,
+            self      => JSON::false
         });
     });
 

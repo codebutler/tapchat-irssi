@@ -234,4 +234,11 @@ sub hash_password {
     return $ppr->as_rfc2307;
 };
 
+sub nick_match_msg {
+    my $self = shift;
+    my $msg  = shift;
+    my $nick = shift;
+    ($msg =~ /$nick/) ? JSON::true : JSON::false;;
+};
+
 1;
