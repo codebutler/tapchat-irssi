@@ -63,8 +63,8 @@ sub add_connection {
         $self->on_message($connection, decode_json($message));
     });
 
-    $self->send($connection, $self->make_header);
-    $self->send($connection, $self->make_backlog);
+    $self->send_header($connection);
+    $self->send_backlog($connection);
 };
 
 sub remove_connection {
@@ -140,18 +140,22 @@ sub send {
     my $connection = shift;
     my $message    = shift;
 
-    if (ref($message) eq 'ARRAY') {
-        foreach my $item (@$message) {
-            $self->send($connection, $item);
-        }
-        return;
-    }
+    $message = $self->prepare_message($message);
 
-    $connection->send(
-        encode_json(
-            $self->prepare_message($message)
-        )
-    );
+    $connection->send(encode_json($message));
+
+    return $message;
+}
+
+sub send_buffer_backlog {
+    my $self       = shift;
+    my $connection = shift;
+    my $bid        = shift;
+
+    my $iter = $self->get_backlog($bid);
+    while (my $message = $iter->()) {
+        $self->send($connection, $message);
+    }
 }
 
 sub add_to_backlog {

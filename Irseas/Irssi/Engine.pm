@@ -159,48 +159,51 @@ sub get_bid {
     }
 };
 
-sub make_header {
-    my $self = shift;
-    {
+sub send_header {
+    my $self       = shift;
+    my $connection = shift;
+    $self->send($connection, {
         "type"          => "header",
-        "time"          => time,
-        "highlight"     => JSON::false,
         "idle_interval" => 29000 # FIXME
-    };
+    });
 }
 
-sub make_backlog {
+sub send_backlog {
     my $self       = shift;
     my $connection = shift;
 
-    my $backlog = [];
+    $self->{sending_backlog} = JSON::true;
 
     foreach my $server (Irssi::servers) {
-        push(@$backlog, $self->make_server($server));
-        push(@$backlog, $self->make_console_buffer($server));
+        $self->send($connection, $self->make_server($server));
+
+        my $buffer_msg = $self->send($connection, $self->make_console_buffer($server));
+        $self->send_buffer_backlog($connection, $buffer_msg->{bid});
     }
 
     foreach my $channel (Irssi::channels) {
-        push(@$backlog, $self->make_channel_buffer($channel));
-        push(@$backlog, $self->make_channel_init($channel));
+        my $buffer_msg = $self->send($connection, $self->make_channel_buffer($channel));
+        $self->send($connection, $self->make_channel_init($channel));
+        $self->send_buffer_backlog($connection, $buffer_msg->{bid});
     }
 
     foreach my $query (Irssi::queries) {
-        push(@$backlog, $self->make_query_buffer($query));
+        my $buffer_msg = $self->send($connection, $self->make_query_buffer($query));
+        $self->send_buffer_backlog($connection, $buffer_msg->{bid});
     }
 
     foreach my $server (Irssi::servers) {
-        push(@$backlog, {
+        $self->send($connection, {
             type => "end_of_backlog",
             cid  => $self->get_cid($server)
         });
     }
 
-    push(@$backlog, {
+    $self->send($connection, {
         "type" => "backlog_complete"
     });
 
-    return $backlog;
+    $self->{sending_backlog} = JSON::false;
 };
 
 sub make_server {
@@ -209,7 +212,7 @@ sub make_server {
 
     # {"bid":-1,"eid":-1,"type":"makeserver","time":-1,"highlight":false,"num_buffers":35,"cid":2283,"name":"SWN","nick":"fR","nickserv_nick":"fR_","nickserv_pass":"","realname":"fR","hostname":"irc.seattlewireless.net","port":7000,"away":"","disconnected":false,"ssl":true,"server_pass":""},
 
-    { 
+    {
         "type"         => "makeserver", 
         "cid"          => $self->get_cid($server),
         "name"         => $server->{chatnet} || $server->{tag},
@@ -228,8 +231,6 @@ sub make_buffer {
     my $item  = shift;
     my $extra = shift || {};
 
-    my $messages = [];
-
     my $message = {
         "type"        => "makebuffer",
         "buffer_type" => $type,
@@ -244,14 +245,7 @@ sub make_buffer {
         $message->{last_seen_eid} = $eid;
     }
 
-    push(@$messages, $message);
-
-    my $iter = $self->get_backlog($self->get_bid($item));
-    while (my $message = $iter->()) {
-        push(@$messages, $message);
-    }
-
-    return $messages;
+    return $message;
 };
 
 sub make_console_buffer {
