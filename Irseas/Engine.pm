@@ -90,12 +90,9 @@ sub broadcast {
 
     $message = $self->prepare_message($message);
 
-    my $eid = $self->add_to_backlog($message);
-
-    if ($eid) {
+    unless ($message->{eid}) {
+        my $eid = $self->add_to_backlog($message);
         $message->{eid} = $eid;
-    } else {
-        $message->{eid} = -1;
     }
 
     my $json = encode_json($message);
@@ -167,13 +164,17 @@ sub add_to_backlog {
     my $time = $message->{time};
 
     unless ($bid) {
-        return;
+        return -1;
     }
 
     my %excludes = map { $_ => 1 } @EXCULDED_FROM_BACKLOG;
     if (exists($excludes{$type})) {
         return;
     }
+
+    delete $message->{is_backlog};
+    delete $message->{eid};
+    delete $message->{time};
 
     my $data = encode_json($message);
 
@@ -197,7 +198,8 @@ sub get_backlog {
         $row = $iter->value();
         $message = decode_json($row->{data});
         $message->{is_backlog} = JSON::true;
-        $message->{eid} = $row->{eid};
+        $message->{eid}        = $row->{eid};
+        $message->{time}       = $row->{created_at};
 
         return $message;
     };

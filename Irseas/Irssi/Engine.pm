@@ -175,30 +175,18 @@ sub make_backlog {
 
     my $backlog = [];
 
-    my $bids = [];
-
     foreach my $server (Irssi::servers) {
         push(@$backlog, $self->make_server($server));
         push(@$backlog, $self->make_console_buffer($server));
-        push(@$bids, $self->get_bid($server));
     }
 
     foreach my $channel (Irssi::channels) {
         push(@$backlog, $self->make_channel_buffer($channel));
         push(@$backlog, $self->make_channel_init($channel));
-        push(@$bids, $self->get_bid($channel));
     }
 
     foreach my $query (Irssi::queries) {
         push(@$backlog, $self->make_query_buffer($query));
-        push(@$bids, $self->get_bid($query));
-    }
-
-    foreach my $bid (@$bids) {
-        my $iter = $self->get_backlog($bid);
-        while (my $message = $iter->()) {
-            push(@$backlog, $message);
-        }
     }
 
     foreach my $server (Irssi::servers) {

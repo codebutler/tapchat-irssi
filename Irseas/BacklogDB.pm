@@ -162,7 +162,7 @@ sub select_events {
     my @bind = ( $bid, $limit );
 
     return idb_rows($self->{db}, "
-        SELECT eid, bid, data
+        SELECT eid, bid, data, created_at
         FROM events
         WHERE eid IN (
             SELECT eid
