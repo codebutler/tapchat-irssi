@@ -142,6 +142,10 @@ sub send {
 
     $message = $self->prepare_message($message);
 
+    unless ($message->{eid}) {
+        $message->{eid} = -1;
+    }
+
     $connection->send(encode_json($message));
 
     return $message;
@@ -162,18 +166,20 @@ sub add_to_backlog {
     my $self    = shift;
     my $message = shift;
 
+    $message = { %$message };
+
     my $cid  = $message->{cid};
     my $bid  = $message->{bid};
     my $type = $message->{type};
     my $time = $message->{time};
-
+    
     unless ($bid) {
         return -1;
     }
 
     my %excludes = map { $_ => 1 } @EXCULDED_FROM_BACKLOG;
     if (exists($excludes{$type})) {
-        return;
+        return -1;
     }
 
     delete $message->{is_backlog};
@@ -212,10 +218,6 @@ sub get_backlog {
 sub prepare_message {
     my $self    = shift;
     my $message = shift;
-
-    unless ($message->{eid}) {
-        $message->{eid} = -1;
-    }
 
     unless (exists $message->{time}) {
         $message->{time} = time;
