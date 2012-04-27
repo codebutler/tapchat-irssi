@@ -46,6 +46,8 @@ sub new {
 
     $params{id_to_cid}    = {};
     $params{cid_to_id}    = {};
+    $params{id_to_bid}    = {};
+    $params{bid_to_id}    = {};
     $params{backlog_file} = $BACKLOG_FILE;
 
     my $self = Irseas::Engine->new(%params);
@@ -111,16 +113,32 @@ sub get_bid {
     my $self   = shift;
     my $buffer = shift;
 
+    my $id_to_bid = $self->{id_to_bid};
+    my $bid_to_id = $self->{bid_to_id};
+
+    my $id = $buffer->{_irssi};
+
+    if ($id_to_bid->{$id}) {
+        return $id_to_bid->{$id};
+    }
+
+    my $bid;
+
     if (ref($buffer) eq "Irssi::Irc::Server") {
         # Special case for "console" buffer
         my $cid  = $self->get_cid($buffer);
         my $name = "*";
-        return $self->db->get_bid($cid, $name);
+        $bid = $self->db->get_bid($cid, $name);
 
     } else {
         my $cid = $self->get_cid($buffer->{server});
-        return $self->db->get_bid($cid, $buffer->{name});
+        $bid = $self->db->get_bid($cid, $buffer->{name});
     }
+
+    $id_to_bid->{$id} = $bid;
+    $bid_to_id->{$bid} = $id;
+
+    return $bid;
 };
 
 sub send_header {
@@ -292,6 +310,33 @@ sub find_server {
     return undef;
 };
 
+sub find_buffer {
+    my $self   = shift;
+    my $server = shift;
+    my $bid    = shift;
+
+    my $id = $self->{bid_to_id}->{$bid};
+
+    if ($id == $server->{_irssi}) {
+        # This is the fake "console" buffer.
+        return undef;
+    };
+
+    foreach my $channel (Irssi::channels) {
+        if ($channel->{_irssi} == $id) {
+            return $channel;
+        }
+    }
+
+    foreach my $query (Irssi::queries) {
+        if ($query->{_irssi} == $id) {
+            return $query;
+        }
+    }
+
+    return undef;
+}
+
 sub message_handlers {
     my $self = shift;
 
@@ -383,6 +428,16 @@ sub message_handlers {
 
             my $server = $self->find_server($message->{cid});
             $server->command("PART " . $channel);
+        },
+
+        'hide-buffer' => sub {
+            my $connection = shift;
+            my $message    = shift;
+
+            my $server = $self->find_server($message->{cid});
+            my $buffer = $self->find_buffer($server, $message->{id});
+
+            $buffer->window->command('window close');
         }
     }
 }

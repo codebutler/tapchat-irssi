@@ -83,8 +83,8 @@ sub get_bid {
         $st->bind_param(":name", $name);
         $st->bind_param(":created_at", time);
         $st->execute;
-        
-        return $self->{db}->func('last_insert_rowid')
+
+        return $self->{db}->func('last_insert_rowid');
     }
 };
 
