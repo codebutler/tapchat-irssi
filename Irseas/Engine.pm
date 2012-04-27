@@ -92,6 +92,11 @@ sub is_configured {
     $self->port && $self->password;
 };
 
+sub is_started {
+    my $self = shift;
+    !!($self->{ws_server});
+};
+
 sub stop {
     my $self = shift;
 
