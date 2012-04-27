@@ -72,15 +72,15 @@ sub start {
         },
         on_verify_password => sub {
             my $password = shift;
-            return $engine->verify_password($password);
+            return $self->verify_password($password);
         },
         on_connection => sub {
             my $connection = shift;
-            $engine->add_connection($connection);
+            $self->add_connection($connection);
         },
         on_close => sub {
             my $connection = shift;
-            $engine->remove_connection($connection);
+            $self->remove_connection($connection);
         }
     );
 
@@ -128,8 +128,6 @@ sub add_connection {
     my $connection = shift;
 
     $self->log("Connection added: " . $connection->{host} . ":" . $connection->{port});
-
-    my $handler = $self->{message_handler};
     
     $self->connections->add($connection);
     $connection->on_message(sub {
@@ -321,6 +319,38 @@ sub nick_match_msg {
     my $msg  = shift;
     my $nick = shift;
     ($msg =~ /$nick/) ? JSON::true : JSON::false;;
+};
+
+sub on_message {
+    my $self       = shift;
+    my $connection = shift;
+    my $message    = shift;
+
+    my $reply = {};
+
+    my $handler = $self->message_handlers->{$message->{_method}};
+
+    if ($handler) {
+        eval {
+            $reply = $handler->($connection, $message);
+        };
+
+        if ($@) {
+            $self->log("Error in on_message: " . $@);
+            $reply->{success} = JSON::false;
+        } else {
+            $reply->{success} = JSON::true;
+        }
+
+    } else {
+        $self->log("Unknown message type: " . encode_json($message));
+        $reply->{success} = JSON::false;
+    }
+
+    $self->send($connection, {
+        _reqid => $message->{_reqid},
+        msg    => $reply
+    });
 };
 
 1;

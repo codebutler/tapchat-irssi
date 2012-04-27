@@ -86,66 +86,6 @@ sub log {
     Irssi::print("[IRSEAS] " . $msg);
 }
 
-sub on_message {
-    my $self       = shift;
-    my $connection = shift;
-    my $message    = shift;
-
-    my $method = $message->{_method};
-
-    unless ($message->{cid}) {
-        if ($method eq "heartbeat") {
-            $self->{selected_buffer} = $message->{selectedBuffer};
-
-            my $seen_eids = decode_json($message->{seenEids});
-            foreach my $cid (keys %{$seen_eids}) {
-                my $buffers = $seen_eids->{$cid};
-                foreach my $bid (keys %{$buffers}) {
-                    my $eid = $buffers->{$bid};
-                    $self->{db}->set_buffer_last_seen_eid($bid, $eid);
-                }
-            }
-
-            # FIXME: Only need to send seen_eids that have changed
-            my $updated_seen_eids = $self->{db}->get_all_last_seen_eids;
-
-            $self->send($connection, {
-                type     => 'heartbeat_echo',
-                seenEids => $updated_seen_eids
-            });
-
-        }
-        return;
-    }
-
-    my $server = $self->find_server($message->{cid});
-    unless ($server) {
-        die "Server not found! " . $message->{cid};
-    }
-
-    if ($method eq "say") {
-        my $target = $message->{to};
-        my $text   = $message->{msg};
-
-        if ($text eq undef) {
-            $server->command("QUERY " . $target);
-        } else {
-            $server->command("QUERY " . $target . " " . $text);
-        }
-
-    } elsif ($method eq "join") {
-        my $channel = $message->{channel};
-
-        $server->command("JOIN " . $channel);
-
-    } elsif ($method eq "part") {
-        my $channel = $message->{channel};
-
-        $server->command("PART " . $channel);
-
-    }
-};
-
 sub get_cid {
     my $self   = shift;
     my $server = shift;
@@ -351,5 +291,101 @@ sub find_server {
     }
     return undef;
 };
+
+sub message_handlers {
+    my $self = shift;
+
+    {
+        heartbeat => sub {
+            my $connection = shift;
+            my $message    = shift;
+
+            $self->{selected_buffer} = $message->{selectedBuffer};
+
+            my $seen_eids = decode_json($message->{seenEids});
+            foreach my $cid (keys %{$seen_eids}) {
+                my $buffers = $seen_eids->{$cid};
+                foreach my $bid (keys %{$buffers}) {
+                    my $eid = $buffers->{$bid};
+                    $self->{db}->set_buffer_last_seen_eid($bid, $eid);
+                }
+            }
+
+            # FIXME: Only need to send seen_eids that have changed
+            my $updated_seen_eids = $self->{db}->get_all_last_seen_eids;
+
+            $self->send($connection, {
+                type     => 'heartbeat_echo',
+                seenEids => $updated_seen_eids
+            });
+        },
+
+        say => sub {
+            my $connection = shift;
+            my $message    = shift;
+
+            my $server = $self->find_server($message->{cid});
+
+            my $to   = $message->{to};
+            my $cid  = $message->{cid};
+            my $text = $message->{msg};
+            
+            # FIXME: This won't work for non-IRC protocols.
+            my $is_channel = ($to =~ /^#/);
+
+            my $witem = Irssi::window_find_item($to);
+
+            my $cmd = ($is_channel) ? "MSG" : "QUERY";
+
+            if ($text) {
+                $server->command("$cmd $to $text");
+
+            } elsif (!$is_channel) {
+                # Just open new query window
+                $server->command("QUERY $to");
+            }
+
+            if ($witem) {
+                print "window already open";
+                # Window was already open.
+                return {};
+            }
+
+            return {
+                name => $to,
+                cid  => $cid,
+                type => 'open_buffer'
+            };
+        },
+
+        join => sub {
+            my $connection = shift;
+            my $message    = shift;
+
+            my $channel = $message->{channel};
+            my $cid     = $message->{cid};
+
+            my $server = $self->find_server($message->{cid});
+            $server->command("JOIN " . $channel);
+
+            return {
+                name => $channel, 
+                cid  => $cid, 
+                type => 'open_buffer' 
+            };
+        },
+
+        part => sub {
+            my $connection = shift;
+            my $message    = shift;
+
+            my $channel = $message->{channel};
+
+            my $server = $self->find_server($message->{cid});
+            $server->command("PART " . $channel);
+        }
+    }
+}
+
 
 1;
