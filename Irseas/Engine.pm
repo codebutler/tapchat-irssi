@@ -1,3 +1,23 @@
+#
+# Irseas::Engine
+#
+# Copyright (C) 2012 Eric Butler <eric@codebutler.com>
+#
+# This file is part of Irseas.
+#
+# Irseas is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Irseas is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+
 package Irseas::Engine;
 
 use Irseas::BacklogDB;
@@ -8,6 +28,7 @@ use Authen::Passphrase::BlowfishCrypt;
 use Data::Dumper;
 use Data::ArrayList;
 use JSON;
+use WebSocket::Server;
 
 my @EXCULDED_FROM_BACKLOG = (
     "makeserver", "makebuffer", "connection_deleted", "delete_buffer", "channel_init"
@@ -28,6 +49,59 @@ sub new {
         %params
     }, $class;
 }
+
+sub start {
+    my $self = shift;
+
+    unless ($self->is_configured) {
+        $self->show_welcome();
+        return;
+    }
+
+    if ($self->{ws_server}) {
+        return;
+    }
+
+    $self->{ws_server} = new WebSocket::Server(
+        on_listen => sub {
+            my $port = shift;
+            $self->log("Listening on: $port");
+        },
+        on_stop => sub {
+            $self->log("Stopped listening");
+        },
+        on_verify_password => sub {
+            my $password = shift;
+            return $engine->verify_password($password);
+        },
+        on_connection => sub {
+            my $connection = shift;
+            $engine->add_connection($connection);
+        },
+        on_close => sub {
+            my $connection = shift;
+            $engine->remove_connection($connection);
+        }
+    );
+
+    $self->{ws_server}->listen($self->port);
+};
+
+sub is_configured {
+    my $self = shift;
+    $self->port && $self->password;
+};
+
+sub stop {
+    my $self = shift;
+
+    unless ($self->{ws_server}) {
+        return;
+    }
+
+    $self->{ws_server}->stop;
+    $self->{ws_server} = undef;
+};
 
 sub db {
   my $self = shift;

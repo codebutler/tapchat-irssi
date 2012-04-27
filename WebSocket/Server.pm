@@ -98,6 +98,10 @@ sub listen {
     my $self = shift;
     my $port = shift;
 
+    if ($self->{tcp_server}) {
+        return;
+    }
+
     my $tcp_server = AnyEvent::Socket::tcp_server undef, $port, sub {
         my $fh   = shift;
         my $host = shift;
@@ -197,8 +201,14 @@ sub listen {
 sub stop {
     my $self = shift;
 
+    unless ($self->{tcp_server}) {
+        return;
+    }
+
     $handles = [];
     $self->{tcp_server} = undef;
+
+    $self->{on_stop}();
 };
 
 1;

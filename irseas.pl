@@ -29,81 +29,19 @@ use lib dirname(Cwd::abs_path(__FILE__));
 
 use Irseas::Irssi::Engine;
 
-use WebSocket::Server;
-
 use Carp;
 $SIG{__WARN__} = \&carp;
 $SIG{__DIE__} = \&confess;
 
+our $engine = new Irseas::Irssi::Engine;
+
 Irssi::settings_add_str('irseas', 'irseas_password', '');
-Irssi::settings_add_int('irseas', 'irseas_port', 3000);
+Irssi::settings_add_int('irseas', 'irseas_port',     57623);
 
-sub configure {
-  Irssi::print("");
-  Irssi::print("Welcome to Irseas!");
-  Irssi::print("");
-  Irssi::print("Please wait a moment...");
+use Irseas::Irssi::Commands;
+bind_commands($engine);
 
-  # FIXME: Generate SSL cert!
-  
-  ( my $word, my $hyphenated ) = Crypt::RandPasswd::word(16, 16);
+use Irseas::Irssi::SignalHandlers;
+add_signals($engine);
 
-  Irssi::print("");
-  Irssi::print("Password: " . $word);
-  Irssi::print("");
-
-  # start($port, $password);
-};
-
-sub start {
-    my $port = shift;
-
-    my $engine = new Irseas::Irssi::Engine;
-
-    # FIXME: Move this into Irseas::Irssi::Engine!
-    use Irseas::Irssi::SignalHandlers;
-    add_signals($engine);
-
-    my $ws_server = new WebSocket::Server(
-        on_listen => sub {
-            my $port = shift;
-            $engine->log("Listening on: $port");
-        },
-        on_verify_password => sub {
-            my $password = shift;
-            return $engine->verify_password($password);
-        },
-        on_connection => sub {
-            my $connection = shift;
-            $engine->add_connection($connection);
-        },
-        on_close => sub {
-            my $connection = shift;
-            $engine->remove_connection($connection);
-        }
-    );
-
-    $ws_server->listen($port);
-};
-
-my $port = Irssi::settings_get_int('irseas_port');
-my $pass = Irssi::settings_get_str('irseas_password');
-    
-# FIXME
-#if (!$port || !$pass) {
-#unless ($engine->is_configured) {
-#    $engine->configure(sub {
-#        start($port, $pass);
-#    });
-#    return;
-#}
-#sub start {
-#    my $self = shift;
-#};
-#unless ($port && $password) {
-#    configure();
-#    return;
-#}
-#start($port, $password);
-
-start($port);
+$engine->start;

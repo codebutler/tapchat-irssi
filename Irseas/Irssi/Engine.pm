@@ -22,8 +22,6 @@ package Irseas::Irssi::Engine;
 
 @ISA = (Irseas::Engine);
 
-use Authen::Passphrase;
-use Crypt::RandPasswd;
 use Data::Dumper;
 use JSON;
 
@@ -46,8 +44,8 @@ sub new {
     my $class  = shift;
     my %params = @_;
 
-    $params{id_to_cid} = {};
-    $params{cid_to_id} = {};
+    $params{id_to_cid}    = {};
+    $params{cid_to_id}    = {};
     $params{backlog_file} = $BACKLOG_FILE;
 
     my $self = Irseas::Engine->new(%params);
@@ -55,7 +53,29 @@ sub new {
     return bless($self, $class);
 };
 
+sub show_welcome {
+    my $self = shift;
+
+    Irssi::print("Thank you for installing Irseas!");
+    Irssi::print("");
+    Irssi::print("Run the following command to get started:");
+    Irssi::print("");
+    Irssi::print("    /irseas configure %Upassword%U");
+    Irssi::print("");
+    Irssi::print("If you have any questions, please visit http://irseas.com/irssi");
+    Irssi::print("");
+}
+
+
+sub port {
+    my $self = shift;
+
+    return int(Irssi::settings_get_int('irseas_port'));
+};
+
 sub password {
+    my $self = shift;
+
     return Irssi::settings_get_str('irseas_password');
 };
 
@@ -107,7 +127,11 @@ sub on_message {
         my $target = $message->{to};
         my $text   = $message->{msg};
 
-        $server->command("MSG " . $target . " " . $text);
+        if ($text eq undef) {
+            $server->command("QUERY " . $target);
+        } else {
+            $server->command("QUERY " . $target . " " . $text);
+        }
 
     } elsif ($method eq "join") {
         my $channel = $message->{channel};

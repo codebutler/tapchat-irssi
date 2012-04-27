@@ -4,6 +4,8 @@ More information here soon.
 
 ## Installation
 
+This process will be simplified in the future.
+
 1. Install cpanmin.
 
         $ wget -O- http://cpanmin.us | perl - -l ~/perl5 App::cpanminus local::lib
@@ -19,26 +21,22 @@ More information here soon.
 
 3. Install irseas irssi script.
 
-        $ mkdir -p ~/.irssi/scripts
-        $ cd ~/.irssi/scripts
-        $ git clone https://github.com/codebutler/irseas-irssi.git irseas
+        $ mkdir -p ~/.irssi/scripts/autorun
+        $ git clone https://github.com/codebutler/irseas-irssi.git ~/.irssi/scripts/irseas
         $ ln -s ~/.irssi/scripts/irseas/irseas.pl ~/.irssi/scripts/irseas.pl
+        $ ln -s ~/.irssi/scripts/irseas.pl ~/.irseas/scripts/autorun/irseas.pl
 
-4. Generate self-signed SSL certificate.
-
-        $ openssl req -new -x509 -days 365 -nodes -out ~/.irssi/irseas.pem -keyout ~/.irssi/irseas.pem -subj '/CN=irseas'
-
-5. Generate config file
-
-        $ perl ~/.irssi/scripts/irseas/make_config.pl
-
-        irseas-irssi configurator
-
-        Port [3000]:
-        Password: 
-
-        Wrote /home/eric/.irssi/irseas.yml
-
-6. Load the script from within irsii:
+4. Restart irssi or load the script.
 
         /run irseas
+
+5. Set a password:
+
+        /irseas configure your_password
+
+	You'll need to open TCP/87623 on your firewall. You can change the port if you'd like:
+	
+        /set irseas_port 12345
+        /irseas restart
+        
+6. Launch the app on your phone and connect!
