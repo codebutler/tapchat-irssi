@@ -1,4 +1,4 @@
-package Irseas::BacklogDB;
+package TapChat::BacklogDB;
 
 my $SCHEMA_VERSION = 1;
 

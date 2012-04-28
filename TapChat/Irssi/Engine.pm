@@ -1,34 +1,37 @@
 #
-# Irseas::Irssi::Engine - Irseas plugin for Irssi
+# TapChat::Irssi::Engine - TapChat plugin for Irssi
 #
 # Copyright (C) 2012 Eric Butler <eric@codebutler.com>
 #
-# This file is part of Irseas.
+# This file is part of TapChat.
 #
-# Irseas is free software: you can redistribute it and/or modify
+# TapChat is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Irseas is distributed in the hope that it will be useful,
+# TapChat is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+# along with TapChat.  If not, see <http://www.gnu.org/licenses/>.
 
-package Irseas::Irssi::Engine;
+package TapChat::Irssi::Engine;
 
-@ISA = (Irseas::Engine);
+@ISA = (TapChat::Engine);
 
 use Data::Dumper;
 use JSON;
+use Crypt::Random;
+use UUID::Tiny;
+use MIME::Base64;
 
 use Irssi;
 use Irssi::TextUI;
 
-use Irseas::Engine;
+use TapChat::Engine;
 
 # Sometimes, for some unknown reason, perl emits warnings like the following:
 #   Can't locate package Irssi::Nick for @Irssi::Irc::Nick::ISA
@@ -38,7 +41,7 @@ use Irseas::Engine;
 # http://pound-perl.pm.org/code/irssi/autovoice.pl
 { package Irssi::Nick }
 
-my $BACKLOG_FILE = $ENV{HOME} . "/.irssi/irseas.db";
+my $BACKLOG_FILE = $ENV{HOME} . "/.irssi/tapchat.db";
 
 sub new {
     my $class  = shift;
@@ -50,7 +53,7 @@ sub new {
     $params{bid_to_id}    = {};
     $params{backlog_file} = $BACKLOG_FILE;
 
-    my $self = Irseas::Engine->new(%params);
+    my $self = TapChat::Engine->new(%params);
 
     return bless($self, $class);
 };
@@ -58,13 +61,13 @@ sub new {
 sub show_welcome {
     my $self = shift;
 
-    Irssi::print("Thank you for installing Irseas!");
+    Irssi::print("Thank you for installing TapChat!");
     Irssi::print("");
     Irssi::print("Run the following command to get started:");
     Irssi::print("");
-    Irssi::print("    /irseas configure %Upassword%U");
+    Irssi::print("    /tapchat configure %Upassword%U");
     Irssi::print("");
-    Irssi::print("If you have any questions, please visit http://irseas.com/irssi");
+    Irssi::print("If you have any questions, please visit http://tapchat.com/irssi");
     Irssi::print("");
 }
 
@@ -72,20 +75,44 @@ sub show_welcome {
 sub port {
     my $self = shift;
 
-    return int(Irssi::settings_get_int('irseas_port'));
+    return int(Irssi::settings_get_int('tapchat_port'));
 };
 
 sub password {
     my $self = shift;
 
-    return Irssi::settings_get_str('irseas_password');
+    return Irssi::settings_get_str('tapchat_password');
+};
+
+sub push_id {
+    my $self = shift;
+
+    my $id = Irssi::settings_get_str('tapchat_push_id');
+    unless ($id) {
+        $key = create_UUID_as_string(UUID_V4);
+        Irssi::settings_set_str('tapchat_push_id', $key);
+    }
+
+    return $id;
+};
+
+sub push_key {
+    my $self = shift;
+
+    my $key = Irssi::settings_get_str('tapchat_push_key');
+    unless ($key) {
+        $key = encode_base64(Crypt::Random::makerandom_octet(Size => 256, Strength => 1), '');
+        Irssi::settings_set_str('tapchat_push_key', $key);
+    }
+
+    return decode_base64($key);
 };
 
 sub log {
     my $self = shift;
     my $msg  = shift;
 
-    Irssi::print("[IRSEAS] " . $msg);
+    Irssi::print("[TAPCHAT] " . $msg);
 }
 
 sub get_cid {

@@ -1,26 +1,26 @@
 #
-# Irseas::Engine
+# TapChat::Engine
 #
 # Copyright (C) 2012 Eric Butler <eric@codebutler.com>
 #
-# This file is part of Irseas.
+# This file is part of TapChat.
 #
-# Irseas is free software: you can redistribute it and/or modify
+# TapChat is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Irseas is distributed in the hope that it will be useful,
+# TapChat is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+# along with TapChat.  If not, see <http://www.gnu.org/licenses/>.
 
-package Irseas::Engine;
+package TapChat::Engine;
 
-use Irseas::BacklogDB;
+use TapChat::BacklogDB;
 
 use Authen::Passphrase;
 use Authen::Passphrase::BlowfishCrypt;
@@ -40,7 +40,7 @@ sub new {
 
     my $backlog_file = delete $params{backlog_file};
 
-    my $db = Irseas::BacklogDB->new($backlog_file);
+    my $db = TapChat::BacklogDB->new($backlog_file);
     $db->setup;
 
     bless {
@@ -61,6 +61,9 @@ sub start {
     if ($self->{ws_server}) {
         return;
     }
+
+    use MIME::Base64;
+    print "Got push id: " . $self->push_id . " key: " . encode_base64($self->push_key, '');
 
     $self->{ws_server} = new WebSocket::Server(
         on_listen => sub {
@@ -303,6 +306,8 @@ sub prepare_message {
     unless (exists $message->{highlight}) {
         $message->{highlight} = JSON::false;
     }
+
+    # FIXME: is_backlog
 
     return $message;
 };

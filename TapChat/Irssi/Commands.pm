@@ -3,45 +3,45 @@
 #
 # Copyright (C) 2012 Eric Butler <eric@codebutler.com>
 #
-# This file is part of Irseas.
+# This file is part of TapChat.
 #
-# Irseas is free software: you can redistribute it and/or modify
+# TapChat is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Irseas is distributed in the hope that it will be useful,
+# TapChat is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+# along with TapChat.  If not, see <http://www.gnu.org/licenses/>.
 
 use Authen::Passphrase;
 use Crypt::RandPasswd;
 
-my $BASE_CMD = 'irseas';
+my $BASE_CMD = 'tapchat';
 
 sub commands {
     my $engine = shift;
     {
         start => {
-            help    => 'Start the Irseas server',
+            help    => 'Start the TapChat server',
             handler => sub {
                 $engine->start;
             }
         },
 
         stop => {
-            help    => 'Start the Irseas server',
+            help    => 'Start the TapChat server',
             handler => sub {
                 $engine->stop;
             }
         },
 
         restart => {
-            help    => 'Restart the Irseas service',
+            help    => 'Restart the TapChat service',
             handler => sub {
                 $engine->stop;
                 $engine->start;
@@ -49,7 +49,7 @@ sub commands {
         },
 
         configure => {
-            help    => 'Configure Irseas',
+            help    => 'Configure TapChat',
             usage   => [ 'password' ],
             handler => sub {
                 my $password = shift;
@@ -62,18 +62,18 @@ sub commands {
                     passphrase  => $password
                 );
 
-                Irssi::settings_set_str('irseas_password', $ppr->as_rfc2307);
+                Irssi::settings_set_str('tapchat_password', $ppr->as_rfc2307);
 
                 Irssi::print "Password updated.";
 
-                unless (Irssi::settings_get_int('irseas_port')) {
-                    Irssi::settings_set_int('irseas_port', 57623);
+                unless (Irssi::settings_get_int('tapchat_port')) {
+                    Irssi::settings_set_int('tapchat_port', 57623);
                 }
 
-                my $cert_file = $ENV{HOME} . "/.irssi/irseas.pem";
+                my $cert_file = $ENV{HOME} . "/.irssi/tapchat.pem";
                 unless (-e $cert_file) {
                     Irssi::print "Generating SSL certificate (this may take a minute)...";
-                    my $result = `openssl req -new -x509 -days 10000 -nodes -out $cert_file -keyout $cert_file -subj '/CN=irseas' 2>&1`;
+                    my $result = `openssl req -new -x509 -days 10000 -nodes -out $cert_file -keyout $cert_file -subj '/CN=tapchat' 2>&1`;
                     if ($? != 0) {
                         Irssi::print "Failed to generate certificate: $result";
                         return;

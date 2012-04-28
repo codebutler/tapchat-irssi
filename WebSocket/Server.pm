@@ -3,20 +3,20 @@
 #
 # Copyright (C) 2012 Eric Butler <eric@codebutler.com>
 #
-# This file is part of Irseas.
+# This file is part of TapChat.
 #
-# Irseas is free software: you can redistribute it and/or modify
+# TapChat is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# Irseas is distributed in the hope that it will be useful,
+# TapChat is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Irseas.  If not, see <http://www.gnu.org/licenses/>.
+# along with TapChat.  If not, see <http://www.gnu.org/licenses/>.
 
 use strict;
 use warnings;
@@ -110,7 +110,7 @@ sub listen {
         my $handshake = Protocol::WebSocket::Handshake::Server->new;
         my $frame     = Protocol::WebSocket::Frame->new;
 
-        my $cert_file = $ENV{HOME} . "/.irssi/irseas.pem";
+        my $cert_file = $ENV{HOME} . "/.irssi/tapchat.pem";
 
         my $handle = new AnyEvent::Handle
             fh      => $fh,
@@ -123,6 +123,8 @@ sub listen {
             host   => $host,
             port   => $port
         );
+
+        print "New socket connection: $host:$port";
 
         push(@$handles, $handle);
 

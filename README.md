@@ -1,4 +1,4 @@
-# Irseas for Irssi
+# TapChat for Irssi
 
 More information here soon.
 
@@ -15,28 +15,29 @@ This process will be simplified in the future.
 2. Install perl dependencies.
 
         $ cpanm JSON Protocol::WebSocket AnyEvent::Socket \
-            AnyEvent::Handle AnyEvent::TLS Net::SSLeay \
+            AnyEvent::Handle AnyEvent::TLS Net::SSLeay UUID::Tiny \
             URI::Query Authen::Passphrase Term::ReadKey DBD::SQLite \
-            DBIx::Migration Iterator::DBI Crypt::RandPasswd Data::ArrayList
+            DBIx::Migration Iterator::DBI Crypt::RandPasswd Data::ArrayList \
+            Crypt::Random Crypt::CBC Crypt::Rijndael MIME::Base64
 
-3. Install irseas irssi script.
+3. Install TapChat irssi script.
 
         $ mkdir -p ~/.irssi/scripts/autorun
-        $ git clone https://github.com/codebutler/irseas-irssi.git ~/.irssi/scripts/irseas
-        $ ln -s ~/.irssi/scripts/irseas/irseas.pl ~/.irssi/scripts/irseas.pl
-        $ ln -s ~/.irssi/scripts/irseas.pl ~/.irseas/scripts/autorun/irseas.pl
+        $ git clone https://github.com/codebutler/tapchat-irssi.git ~/.irssi/scripts/tapchat
+        $ ln -s ~/.irssi/scripts/tapchat/tapchat.pl ~/.irssi/scripts/tapchat.pl
+        $ ln -s ~/.irssi/scripts/tapchat.pl ~/.tapchat/scripts/autorun/tapchat.pl
 
 4. Restart irssi or load the script.
 
-        /run irseas
+        /run tapchat
 
 5. Set a password:
 
-        /irseas configure your_password
+        /tapchat configure your_password
 
 	You'll need to open TCP/87623 on your firewall. You can change the port if you'd like:
 	
-        /set irseas_port 12345
-        /irseas restart
+        /set tapchat_port 12345
+        /tapchat restart
         
 6. Launch the app on your phone and connect!
