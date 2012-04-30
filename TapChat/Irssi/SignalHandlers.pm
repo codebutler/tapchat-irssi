@@ -21,25 +21,73 @@
 sub add_signals {
     my $engine = shift;
 
-    my $signals = signal_handlers($engine);
-
-    foreach my $signal (keys %{$signals}) {
-        Irssi::signal_add_first($signal, sub {
+    sub wrap_signal_handler {
+        my $handler = shift;
+        return sub {
             unless ($engine->is_started) {
                 return;
             }
-
             eval {
-                $signals->{$signal}->(@_);
+                $handler->(@_);
             };
             if ($@) {
-                $self->log("Error in signal handler: " . $@);
+                $engine->log("Error in signal handler: " . $@);
             }
-        });
+        };
+    };
+
+    my $signals = signal_handlers_first($engine);
+    foreach my $signal (keys %{$signals}) {
+        Irssi::signal_add_first($signal, wrap_signal_handler($signals->{$signal}));
+    }
+
+    $signals = signal_handlers_last($engine);
+    foreach my $signal (keys %{$signals}) {
+        Irssi::signal_add_last($signal, wrap_signal_handler($signals->{$signal}));
     }
 }
 
-sub signal_handlers {
+sub signal_handlers_first {
+    my $engine = shift;
+
+    return {
+        'message quit' => sub {
+            my $server  = shift;
+            my $nick    = shift;
+            my $address = shift;
+            my $reason  = shift;
+            
+            # {""bid"":188831,""eid"":23,""type"":""quit"",""time"":1332805542,""highlight"":false,""nick"":""ders"",""msg"":""Client exited"",""hostmask"":""~ders@202.72.107.133"",""cid"":2283,""chan"":""ders""}
+
+            foreach my $channel (Irssi::channels) {
+                if ($channel->nick_find($nick)) {
+                    $engine->broadcast({
+                        cid      => $engine->get_cid($server),
+                        bid      => $engine->get_bid($channel),
+                        type     => "quit",
+                        nick     => $nick,
+                        msg      => $reason,
+                        hostmask => $address
+                    });
+                }
+            }
+
+            my $query = $server->query_find($nick);
+            if ($query) {
+                $engine->broadcast({
+                    cid      => $engine->get_cid($server),
+                    bid      => $engine->get_bid($query),
+                    type     => "quit",
+                    nick     => $nick,
+                    msg      => $reason,
+                    hostmask => $address
+                });
+            }
+        },
+    }
+};
+
+sub signal_handlers_last {
     my $engine = shift;
 
     sub broadcast_all_buffers {
@@ -346,8 +394,6 @@ sub signal_handlers {
 
             my $query = $server->window_item_find($nick);
 
-            my $highlight = $engine->nick_match_msg($msg, $server->{nick});
-
             # "{""bid"":103331,""eid"":2362,""type"":""buffer_msg"",""time"":1332803201,""highlight"":false,""from"":""fR"",""msg"":""hey you there?"",""chan"":""choong"",""cid"":2283,""self"":false},
             $engine->broadcast({
                 type      => "buffer_msg",
@@ -355,7 +401,7 @@ sub signal_handlers {
                 from      => $nick,
                 bid       => $engine->get_bid($query),
                 msg       => $msg,
-                highlight => $highlight,
+                highlight => JSON::true,
                 self      => JSON::false
             });
         },
@@ -482,40 +528,6 @@ sub signal_handlers {
                 nick     => $nick,
                 hostmask => $address
             });
-        },
-
-        'message quit' => sub {
-            my $server  = shift;
-            my $nick    = shift;
-            my $address = shift;
-            my $reason  = shift;
-            
-            # {""bid"":188831,""eid"":23,""type"":""quit"",""time"":1332805542,""highlight"":false,""nick"":""ders"",""msg"":""Client exited"",""hostmask"":""~ders@202.72.107.133"",""cid"":2283,""chan"":""ders""}
-
-            foreach my $channel (Irssi::channels) {
-                if ($channel->nick_find($nick)) {
-                    $engine->broadcast({
-                        cid      => $engine->get_cid($server),
-                        bid      => $engine->get_bid($channel),
-                        type     => "quit",
-                        nick     => $nick,
-                        msg      => $reason,
-                        hostmask => $address
-                    });
-                }
-            }
-
-            my $query = $server->query_find($nick);
-            if ($query) {
-                $engine->broadcast({
-                    cid      => $engine->get_cid($server),
-                    bid      => $engine->get_bid($query),
-                    type     => "quit",
-                    nick     => $nick,
-                    msg      => $reason,
-                    hostmask => $address
-                });
-            }
         },
 
         'message kick' => sub {

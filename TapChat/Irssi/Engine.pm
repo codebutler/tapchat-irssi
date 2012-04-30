@@ -24,7 +24,6 @@ package TapChat::Irssi::Engine;
 
 use Data::Dumper;
 use JSON;
-use Crypt::Random;
 use UUID::Tiny;
 use MIME::Base64;
 
@@ -101,7 +100,7 @@ sub push_key {
 
     my $key = Irssi::settings_get_str('tapchat_push_key');
     unless ($key) {
-        $key = encode_base64(Crypt::Random::makerandom_octet(Size => 256, Strength => 1), '');
+        $key = encode_base64(Crypt::CBC->random_bytes(32));
         Irssi::settings_set_str('tapchat_push_key', $key);
     }
 
@@ -167,15 +166,6 @@ sub get_bid {
 
     return $bid;
 };
-
-sub send_header {
-    my $self       = shift;
-    my $connection = shift;
-    $self->send($connection, {
-        "type"          => "header",
-        "idle_interval" => 29000 # FIXME
-    });
-}
 
 sub send_backlog {
     my $self       = shift;

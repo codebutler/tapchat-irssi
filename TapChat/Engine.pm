@@ -22,13 +22,18 @@ package TapChat::Engine;
 
 use TapChat::BacklogDB;
 
+use MIME::Base64;
 use Authen::Passphrase;
 use Authen::Passphrase::BlowfishCrypt;
-
 use Data::Dumper;
 use Data::ArrayList;
 use JSON;
 use WebSocket::Server;
+use Crypt::CBC;
+use AnyEvent::HTTP;
+use Data::URIEncode;
+
+our $NOTIFY_URL = "https://tapchat.heroku.com/notify";
 
 my @EXCULDED_FROM_BACKLOG = (
     "makeserver", "makebuffer", "connection_deleted", "delete_buffer", "channel_init"
@@ -61,9 +66,6 @@ sub start {
     if ($self->{ws_server}) {
         return;
     }
-
-    use MIME::Base64;
-    print "Got push id: " . $self->push_id . " key: " . encode_base64($self->push_key, '');
 
     $self->{ws_server} = new WebSocket::Server(
         on_listen => sub {
@@ -161,13 +163,6 @@ sub broadcast {
     my $self    = shift;
     my $message = shift;
 
-    if (ref($message) eq 'ARRAY') {
-        foreach my $item (@$message) {
-            $self->broadcast($item);
-        }
-        return;
-    }
-
     $message = $self->prepare_message($message);
 
     unless ($message->{eid}) {
@@ -184,34 +179,9 @@ sub broadcast {
             $connection->send($json);
         }
     }
-}
 
-sub broadcast_all_buffers {
-    my $self    = shift;
-    my $server  = shift;
-    my $message = shift;
-
-    # console buffer
-    $self->broadcast({
-        cid => $self->get_cid($server),
-        bid => $self->get_bid($server),
-        %$message
-    });
-    
-    foreach my $channel ($server->channels) {
-        $self->broadcast({
-            cid => $self->get_cid($server),
-            bid => $self->Get_bid($channel)
-            %$message
-        });
-    }
-
-    foreach my $query ($server->queries) {
-        $self->broadcast({
-            cid => $self->get_cid($server),
-            bid => $self->get_bid($query),
-            %$message
-        });
+    if ($message->{highlight}) {
+        $self->send_push($message);
     }
 }
 
@@ -229,6 +199,20 @@ sub send {
     $connection->send(encode_json($message));
 
     return $message;
+}
+
+sub send_header {
+    my $self       = shift;
+    my $connection = shift;
+
+    print "Sending push info: " . encode_base64url($self->push_key);
+
+    $self->send($connection, {
+        "type"          => "header",
+        "idle_interval" => 29000, # FIXME
+        "push_id"       => $self->push_id,
+        "push_key"      => encode_base64url($self->push_key)
+    });
 }
 
 sub send_buffer_backlog {
@@ -363,4 +347,76 @@ sub on_message {
     });
 };
 
+sub send_push {
+    my $self    = shift;
+    my $message = shift;
+
+    my $bid = $message->{bid};
+
+    # FIXME: This needs to also confirm the client is still connected.
+    # if ($bid eq $self->{selected_buffer}) {
+    #    return;
+    # }
+
+    $self->log('Sending push notification for: ' . encode_json($message));
+
+    my $server = $self->find_server($message->{cid});
+    my $buffer = $self->find_buffer($server, $message->{bid});
+
+    my $title = $buffer->{name};
+
+    my $text;
+    if ($buffer->{type} eq 'CHANNEL') {
+        $text = "<" . $message->{from} . "> " . $message->{msg};
+    } else {
+        $text = $message->{msg};
+    }
+
+    my $info = {
+        title => $title,
+        text  => $text,
+        cid   => $message->{cid},
+        bid   => $bid
+    };
+
+    my $id  = $self->push_id;
+    my $key = $self->push_key;
+
+    # Push notifications go to the TapChat server, then to UrbanAirship,
+    # then to Google (C2DM). None of these people need to know what you're
+    # saying.
+    my ($iv, $ciphertext) = encrypt($key, encode_json($info));
+
+    my $body = Data::URIEncode::complex_to_query({
+        id      => $id,
+        message => encode_base64url($ciphertext),
+        iv      => encode_base64url($iv)
+    });
+
+    http_post $NOTIFY_URL, $body, sub {
+        $self->log('notify finish!');
+    };
+};
+
+sub encode_base64url {
+    my $e = encode_base64(shift, "");
+    $e =~ s/=+\z//;
+    $e =~ tr[+/][-_];
+    return $e;
+}
+
+sub encrypt {
+    my $key = shift;
+    my $msg = shift;
+    my $iv  = Crypt::CBC->random_bytes(16);
+    my $cbc = Crypt::CBC->new(
+        -literal_key => 1,
+        -key         => $key,
+        -iv          => $iv,
+        -cipher      => 'Crypt::Rijndael',
+        -header      => 'none'
+    );
+    my $ciphertext = $cbc->encrypt($msg, '');
+    return ($iv, $ciphertext);
+}
 1;
