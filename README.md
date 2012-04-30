@@ -6,19 +6,16 @@ More information here soon.
 
 This process will be simplified in the future.
 
-1. Install cpanmin.
+1. Install perl dependencies.
+  
+	Using APT:
+	
+		$ sudo apt-get install libanyevent-http-perl libnet-ssleay-perl libuuid-tiny-perl liburi-query-perl libauthen-passphrase-perl libdbd-sqlite3-perl libdbix-class-perl libcrypt-generatepassword-perl libcrypt-cbc-perl libcrypt-rijndael-perl libmime-base64-urlsafe-perl liburi-encode-perl
+		
+	or using [cpanminus](https://github.com/miyagawa/cpanminus#readme):
+	
+        $ cpanm JSON Protocol::WebSocket AnyEvent::Socket AnyEvent::HTTP AnyEvent::Handle AnyEvent::TLS Net::SSLeay UUID::Tiny URI::Query Authen::Passphrase DBD::SQLite DBIx::Migration Iterator::DBI Crypt::RandPasswd Data::ArrayList Crypt::CBC Crypt::Rijndael MIME::Base64 Data::URIEncode
 
-        $ wget -O- http://cpanmin.us | perl - -l ~/perl5 App::cpanminus local::lib
-        $ eval `perl -I ~/perl5/lib/perl5 -Mlocal::lib`
-        $ echo 'eval `perl -I ~/perl5/lib/perl5 -Mlocal::lib`' >> ~/.bashrc
-
-2. Install perl dependencies.
-
-        $ cpanm JSON Protocol::WebSocket AnyEvent::Socket AnyEvent::HTTP \
-            AnyEvent::Handle AnyEvent::TLS Net::SSLeay UUID::Tiny \
-            URI::Query Authen::Passphrase DBD::SQLite DBIx::Migration \
-            Iterator::DBI Crypt::RandPasswd Data::ArrayList Crypt::CBC \
-            Crypt::Rijndael MIME::Base64 Data::URIEncode
 
 3. Install TapChat irssi script.
 
