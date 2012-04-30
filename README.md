@@ -35,7 +35,7 @@ This process will be simplified in the future.
 
         /tapchat configure your_password
 
-	You'll need to open TCP/87623 on your firewall. You can change the port if you'd like:
+	You'll need to open TCP/57623 on your firewall. You can change the port if you'd like:
 	
         /set tapchat_port 12345
         /tapchat restart
