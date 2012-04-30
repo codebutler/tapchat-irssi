@@ -16,9 +16,9 @@ This process will be simplified in the future.
 
         $ cpanm JSON Protocol::WebSocket AnyEvent::Socket AnyEvent::HTTP \
             AnyEvent::Handle AnyEvent::TLS Net::SSLeay UUID::Tiny \
-            URI::Query Authen::Passphrase Term::ReadKey DBD::SQLite \
-            DBIx::Migration Iterator::DBI Crypt::RandPasswd Data::ArrayList \
-            Crypt::CBC Crypt::Rijndael MIME::Base64 Data::URIEncode MIME::Base64
+            URI::Query Authen::Passphrase DBD::SQLite DBIx::Migration \
+            Iterator::DBI Crypt::RandPasswd Data::ArrayList Crypt::CBC \
+            Crypt::Rijndael MIME::Base64 Data::URIEncode
 
 3. Install TapChat irssi script.
 
