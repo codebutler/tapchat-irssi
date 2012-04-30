@@ -1,5 +1,5 @@
 #
-# TapChat.pl - TapChat plugin for Irssi
+# tapchat.pl - TapChat plugin for Irssi
 #
 # Copyright (C) 2012 Eric Butler <eric@codebutler.com>
 #

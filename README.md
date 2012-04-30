@@ -25,7 +25,7 @@ This process will be simplified in the future.
         $ mkdir -p ~/.irssi/scripts/autorun
         $ git clone https://github.com/codebutler/tapchat-irssi.git ~/.irssi/scripts/tapchat
         $ ln -s ~/.irssi/scripts/tapchat/tapchat.pl ~/.irssi/scripts/tapchat.pl
-        $ ln -s ~/.irssi/scripts/tapchat.pl ~/.tapchat/scripts/autorun/tapchat.pl
+        $ ln -s ~/.irssi/scripts/tapchat.pl ~/.irssi/scripts/autorun/tapchat.pl
 
 4. Restart irssi or load the script.
 
