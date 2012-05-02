@@ -2,9 +2,14 @@
 
 More information here soon.
 
-## Installation
+## Install
 
-This process will be simplified in the future.
+
+    $ curl -L https://goo.gl/ddgWk | bash
+   
+You can read the [installer code](https://gist.github.com/2580715) if you'd like.
+
+## Manual Install
 
 1. Install perl dependencies.
   
