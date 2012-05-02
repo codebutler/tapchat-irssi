@@ -21,6 +21,9 @@ sub setup {
     my $self = shift;
 
     my $migrations_dir = dirname(__FILE__) . "/../db";
+    unless (-d $migrations_dir) {
+        die "DB migrations directory not found: $migrations_dir"
+    }
 
     my $m = DBIx::Migration->new({
         dsn => $self->{dsn},
