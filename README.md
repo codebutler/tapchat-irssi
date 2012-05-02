@@ -43,3 +43,7 @@ You can read the [installer code](https://gist.github.com/2580715) if you'd like
         /tapchat restart
         
 6. Launch the app on your phone and connect!
+
+## Push Notifications
+
+TapChat will send push notifications to your phone when you are mentioned in a channel and when you receive a private message, but only if you're marked "away". Install the [screen_away](http://scripts.irssi.org/html/screen_away.pl.html) plugin for best results.
