@@ -358,10 +358,14 @@ sub send_push {
     #    return;
     # }
 
-    $self->log('Sending push notification for: ' . encode_json($message));
-
     my $server = $self->find_server($message->{cid});
     my $buffer = $self->find_buffer($server, $message->{bid});
+
+    unless ($server->{usermode_away} == 1) {
+        return;
+    }
+
+    $self->log('Sending push notification for: ' . encode_json($message));
 
     my $title = $buffer->{name};
 
