@@ -398,7 +398,12 @@ sub send_push {
     });
 
     http_post $NOTIFY_URL, $body, sub {
-        $self->log('notify finish!');
+        my $body    = shift;
+        my $headers = shift;
+
+        unless ($headers->{Status} =~ /^2/) {
+            $self->log("Error sending push notification: $headers->{Status} $headers->{Reason}");
+        }
     };
 };
 

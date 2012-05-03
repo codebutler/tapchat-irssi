@@ -408,7 +408,6 @@ sub message_handlers {
             }
 
             if ($witem) {
-                print "window already open";
                 # Window was already open.
                 return {};
             }
