@@ -85,6 +85,17 @@ sub commands {
 
                 $engine->start;
             }
+        },
+
+        fingerprint => {
+            help    => 'Show your SSL fingerprint',
+            handler => sub {
+                my $cert_file = $ENV{HOME} . "/.irssi/tapchat.pem";
+                my $fingerprint = `openssl x509 -fingerprint -noout -in $cert_file`;
+                $fingerprint =~ s/^SHA1 Fingerprint=//;
+                chomp($fingerprint);
+                $engine->log("Your SSL server fingerprint is: $fingerprint");
+            }
         }
     };
 }
