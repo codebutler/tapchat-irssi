@@ -205,8 +205,6 @@ sub send_header {
     my $self       = shift;
     my $connection = shift;
 
-    print "Sending push info: " . encode_base64url($self->push_key);
-
     $self->send($connection, {
         "type"          => "header",
         "idle_interval" => 29000, # FIXME
