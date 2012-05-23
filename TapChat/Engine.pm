@@ -263,7 +263,7 @@ sub get_backlog {
     my $self = shift;
     my $bid  = shift;
 
-    my $iter = $self->{db}->select_events($bid, 1000);
+    my $iter = $self->{db}->select_events($bid, 50);
 
     return sub {
         return undef if $iter->is_exhausted();
