@@ -1,15 +1,9 @@
 # TapChat for Irssi
 
-More information here soon.
+<p style="font-size: 30px; font-weight: bold; color: red">THIS PROJECT IS DEPRECATED! Use <a href="https://github.com/codebutler/tapchat">this</a> instead!</p>
+
 
 ## Install
-
-
-    $ curl -L https://goo.gl/ddgWk | bash
-   
-You can read the [installer code](https://gist.github.com/2580715) if you'd like.
-
-## Manual Install
 
 1. Install perl dependencies.
   
