@@ -1,6 +1,6 @@
 # TapChat for Irssi
 
-<p style="font-size: 30px; font-weight: bold; color: red">THIS PROJECT IS DEPRECATED! Use <a href="https://github.com/codebutler/tapchat">this</a> instead!</p>
+# <span style="font-weight: bold; color: red">THIS PROJECT IS DEPRECATED! Use <a href="https://github.com/codebutler/tapchat">this</a> instead!</span>
 
 
 ## Install
